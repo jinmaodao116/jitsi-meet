@@ -1,5 +1,7 @@
-/* global $, APP, JitsiMeetJS */
+/* global $, APP, config, JitsiMeetJS */
 const logger = require("jitsi-meet-logger").getLogger(__filename);
+
+import { setLargeVideoHDStatus } from '../../../react/features/base/conference';
 
 import Avatar from "../avatar/Avatar";
 import {createDeferred} from '../../util/helpers';
@@ -11,6 +13,14 @@ import AudioLevels from "../audio_levels/AudioLevels";
 
 const ParticipantConnectionStatus
     = JitsiMeetJS.constants.participantConnectionStatus;
+const DESKTOP_CONTAINER_TYPE = 'desktop';
+/**
+ * The time interval in milliseconds to check the video resolution of the video
+ * being displayed.
+ *
+ * @type {number}
+ */
+const VIDEO_RESOLUTION_POLL_INTERVAL = 2000;
 
 /**
  * Manager for all Large containers.
@@ -33,7 +43,7 @@ export default class LargeVideoManager {
         this.addContainer(VIDEO_CONTAINER_TYPE, this.videoContainer);
 
         // use the same video container to handle desktop tracks
-        this.addContainer("desktop", this.videoContainer);
+        this.addContainer(DESKTOP_CONTAINER_TYPE, this.videoContainer);
 
         this.width = 0;
         this.height = 0;
@@ -48,6 +58,39 @@ export default class LargeVideoManager {
             e => this.onHoverIn(e),
             e => this.onHoverOut(e)
         );
+
+        // Bind event handler so it is only bound once for every instance.
+        this._updateVideoResolutionStatus
+            = this._updateVideoResolutionStatus.bind(this);
+
+        this.videoContainer.addResizeListener(
+            this._updateVideoResolutionStatus);
+
+        if (!JitsiMeetJS.util.RTCUIHelper.isResizeEventSupported()) {
+            /**
+             * An interval for polling if the displayed video resolution is or
+             * is not high-definition. For browsers that do not support video
+             * resize events, polling is the fallback.
+             *
+             * @private
+             * @type {timeoutId}
+             */
+            this._updateVideoResolutionInterval = window.setInterval(
+                this._updateVideoResolutionStatus,
+                VIDEO_RESOLUTION_POLL_INTERVAL);
+        }
+    }
+
+    /**
+     * Stops any polling intervals on the instance and and removes any
+     * listeners registered on child components.
+     *
+     * @returns {void}
+     */
+    destroy() {
+        window.clearInterval(this._updateVideoResolutionInterval);
+        this.videoContainer.removeResizeListener(
+            this._updateVideoResolutionStatus);
     }
 
     onHoverIn (e) {
@@ -103,6 +146,8 @@ export default class LargeVideoManager {
 
         preUpdate.then(() => {
             const { id, stream, videoType, resolve } = this.newStreamData;
+            const isVideoFromCamera = videoType === VIDEO_CONTAINER_TYPE;
+
             this.newStreamData = null;
 
             logger.info("hover in %s", id);
@@ -120,9 +165,7 @@ export default class LargeVideoManager {
             // If the container is VIDEO_CONTAINER_TYPE, we need to check
             // its stream whether exist and is muted to set isVideoMuted
             // in rest of the cases it is false
-            let showAvatar
-                = (videoType === VIDEO_CONTAINER_TYPE)
-                    && (!stream || stream.isMuted());
+            let showAvatar = isVideoFromCamera && (!stream || stream.isMuted());
 
             // If the user's connection is disrupted then the avatar will be
             // displayed in case we have no video image cached. That is if
@@ -130,9 +173,17 @@ export default class LargeVideoManager {
             // the video was not rendered, before the connection has failed.
             const isConnectionActive = this._isConnectionActive(id);
 
-            if (videoType === VIDEO_CONTAINER_TYPE
+            if (isVideoFromCamera
                     && !isConnectionActive
                     && (isUserSwitch || !container.wasVideoRendered)) {
+                showAvatar = true;
+            }
+
+            // If audio only mode is enabled, always show the avatar for
+            // videos from another participant.
+            if (APP.conference.isAudioOnly()
+                && (isVideoFromCamera
+                    || videoType === DESKTOP_CONTAINER_TYPE)) {
                 showAvatar = true;
             }
 
@@ -159,8 +210,12 @@ export default class LargeVideoManager {
 
             // Make sure no notification about remote failure is shown as
             // its UI conflicts with the one for local connection interrupted.
-            const isConnected = APP.conference.isConnectionInterrupted()
-                                || isConnectionActive;
+            // For the purposes of UI indicators, audio only is considered as
+            // an "active" connection.
+            const isConnected
+                = APP.conference.isAudioOnly()
+                    || APP.conference.isConnectionInterrupted()
+                    || isConnectionActive;
 
             // when isHavingConnectivityIssues, state can be inactive,
             // interrupted or restoring. We show different message for
@@ -503,5 +558,19 @@ export default class LargeVideoManager {
      */
     onLocalFlipXChange(val) {
         this.videoContainer.setLocalFlipX(val);
+    }
+
+    /**
+     * Dispatches an action to update the known resolution state of the
+     * large video.
+     *
+     * @private
+     * @returns {void}
+     */
+    _updateVideoResolutionStatus() {
+        const { height, width } = this.videoContainer.getStreamSize();
+        const isCurrentlyHD = Math.min(height, width) >= config.minHDHeight;
+
+        APP.store.dispatch(setLargeVideoHDStatus(isCurrentlyHD));
     }
 }

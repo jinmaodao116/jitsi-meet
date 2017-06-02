@@ -7,16 +7,12 @@ import { FeedbackButton } from '../../feedback';
 import UIEvents from '../../../../service/UI/UIEvents';
 
 import {
-    changeLocalRaiseHand,
-    setProfileButtonUnclickable,
-    showRecordingButton,
     toggleSideToolbarContainer
 } from '../actions';
 import { getToolbarClassNames } from '../functions';
 import Toolbar from './Toolbar';
 
 declare var APP: Object;
-declare var config: Object;
 
 /**
  * Implementation of secondary toolbar React component.
@@ -34,19 +30,10 @@ class SecondaryToolbar extends Component {
      */
     static propTypes = {
         /**
-         * Handler dispatching local "Raise hand".
+         * The indicator which determines whether the local participant is a
+         * guest in the conference.
          */
-        _onLocalRaiseHandChanged: React.PropTypes.func,
-
-        /**
-         * Handler setting profile button unclickable.
-         */
-        _onSetProfileButtonUnclickable: React.PropTypes.func,
-
-        /**
-         * Handler for showing recording button.
-         */
-        _onShowRecordingButton: React.PropTypes.func,
+        _isGuest: React.PropTypes.bool,
 
         /**
          * Handler dispatching toggle toolbar container.
@@ -63,64 +50,6 @@ class SecondaryToolbar extends Component {
          */
         _visible: React.PropTypes.bool
     };
-
-    /**
-     * Constructs instance of SecondaryToolbar component.
-     *
-     * @param {Object} props - React component properties.
-     */
-    constructor(props) {
-        super(props);
-
-        const buttonHandlers = {
-            /**
-             * Mount handler for profile button.
-             *
-             * @type {Object}
-             */
-            profile: {
-                onMount: () =>
-                    APP.tokenData.isGuest
-                        || this.props._onSetProfileButtonUnclickable(true)
-            },
-
-            /**
-             * Mount/Unmount handlers for raisehand button.
-             *
-             * @type {button}
-             */
-            raisehand: {
-                onMount: () =>
-                    APP.UI.addListener(
-                        UIEvents.LOCAL_RAISE_HAND_CHANGED,
-                        this.props._onLocalRaiseHandChanged),
-                onUnmount: () =>
-                    APP.UI.removeListener(
-                        UIEvents.LOCAL_RAISE_HAND_CHANGED,
-                        this.props._onLocalRaiseHandChanged)
-            },
-
-            /**
-             * Mount handler for recording button.
-             *
-             * @type {Object}
-             */
-            recording: {
-                onMount: () =>
-                    config.enableRecording
-                        && this.props._onShowRecordingButton()
-            }
-        };
-
-        this.state = {
-            /**
-             * Object containing on mount/unmount handlers for toolbar buttons.
-             *
-             * @type {Object}
-             */
-            buttonHandlers
-        };
-    }
 
     /**
      * Register legacy UI listener.
@@ -159,12 +88,10 @@ class SecondaryToolbar extends Component {
             return null;
         }
 
-        const { buttonHandlers } = this.state;
         const { secondaryToolbarClassName } = getToolbarClassNames(this.props);
 
         return (
             <Toolbar
-                buttonHandlers = { buttonHandlers }
                 className = { secondaryToolbarClassName }
                 toolbarButtons = { _secondaryToolbarButtons }
                 tooltipPosition = { 'right' }>
@@ -179,45 +106,12 @@ class SecondaryToolbar extends Component {
  *
  * @param {Function} dispatch - Redux action dispatcher.
  * @returns {{
- *     _onLocalRaiseHandChanged: Function,
- *     _onSetProfileButtonUnclickable: Function,
- *     _onShowRecordingButton: Function,
  *     _onSideToolbarContainerToggled
  * }}
  * @private
  */
 function _mapDispatchToProps(dispatch: Function): Object {
     return {
-        /**
-         * Dispatches an action that 'hand' is raised.
-         *
-         * @param {boolean} isRaisedHand - Show whether hand is raised.
-         * @returns {Object} Dispatched action.
-         */
-        _onLocalRaiseHandChanged(isRaisedHand: boolean) {
-            return dispatch(changeLocalRaiseHand(isRaisedHand));
-        },
-
-        /**
-         * Dispatches an action signalling to set profile button unclickable.
-         *
-         * @param {boolean} unclickable - Flag showing whether unclickable
-         * property is true.
-         * @returns {Object} Dispatched action.
-         */
-        _onSetProfileButtonUnclickable(unclickable: boolean) {
-            return dispatch(setProfileButtonUnclickable(unclickable));
-        },
-
-        /**
-         * Dispatches an action signalling that recording button should be
-         * shown.
-         *
-         * @returns {Object} Dispatched action.
-         */
-        _onShowRecordingButton() {
-            return dispatch(showRecordingButton());
-        },
 
         /**
          * Dispatches an action signalling that side toolbar container is
@@ -237,18 +131,26 @@ function _mapDispatchToProps(dispatch: Function): Object {
  *
  * @param {Object} state - Snapshot of Redux store.
  * @returns {{
+ *     _isGuest: boolean,
  *     _secondaryToolbarButtons: Map,
  *     _visible: boolean
  * }}
  * @private
  */
 function _mapStateToProps(state: Object): Object {
-    const {
-        secondaryToolbarButtons,
-        visible
-    } = state['features/toolbox'];
+    const { isGuest } = state['features/jwt'];
+    const { secondaryToolbarButtons, visible } = state['features/toolbox'];
 
     return {
+        /**
+         * The indicator which determines whether the local participant is a
+         * guest in the conference.
+         *
+         * @private
+         * @type {boolean}
+         */
+        _isGuest: isGuest,
+
         /**
          * Default toolbar buttons for secondary toolbar.
          *
@@ -258,7 +160,8 @@ function _mapStateToProps(state: Object): Object {
         _secondaryToolbarButtons: secondaryToolbarButtons,
 
         /**
-         * Shows whether toolbar is visible.
+         * The indicator which determines whether the {@code SecondaryToolbar}
+         * is visible.
          *
          * @private
          * @type {boolean}

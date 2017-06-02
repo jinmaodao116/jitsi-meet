@@ -4,7 +4,6 @@ import type { Dispatch } from 'redux-thunk';
 
 import {
     CLEAR_TOOLBOX_TIMEOUT,
-    SET_DEFAULT_TOOLBOX_BUTTONS,
     SET_SUBJECT,
     SET_SUBJECT_SLIDE_IN,
     SET_TOOLBAR_BUTTON,
@@ -15,7 +14,12 @@ import {
     SET_TOOLBOX_TIMEOUT_MS,
     SET_TOOLBOX_VISIBLE
 } from './actionTypes';
-import { getDefaultToolboxButtons } from './functions';
+
+/**
+ * FIXME: We should make sure all common functions for native and web are
+ * merged in a global functions file.
+ */
+import { getButton } from './functions.native';
 
 /**
  * Event handler for local raise hand changed event.
@@ -25,10 +29,8 @@ import { getDefaultToolboxButtons } from './functions';
  */
 export function changeLocalRaiseHand(handRaised: boolean): Function {
     return (dispatch: Dispatch<*>, getState: Function) => {
-        const state = getState();
-        const { secondaryToolbarButtons } = state['features/toolbox'];
         const buttonName = 'raisehand';
-        const button = secondaryToolbarButtons.get(buttonName);
+        const button = getButton(buttonName, getState());
 
         button.toggled = handRaised;
 
@@ -67,22 +69,6 @@ export function setAudioIconEnabled(enabled: boolean = false): Function {
         };
 
         dispatch(setToolbarButton('microphone', button));
-    };
-}
-
-/**
- * Sets the default toolbar buttons of the Toolbox.
- *
- * @returns {{
- *     type: SET_DEFAULT_TOOLBOX_BUTTONS,
- *     primaryToolbarButtons: Map,
- *     secondaryToolbarButtons: Map
- * }}
- */
-export function setDefaultToolboxButtons(): Object {
-    return {
-        type: SET_DEFAULT_TOOLBOX_BUTTONS,
-        ...getDefaultToolboxButtons()
     };
 }
 
@@ -282,10 +268,8 @@ export function showEtherpadButton(): Function {
  */
 export function toggleFullScreen(isFullScreen: boolean): Function {
     return (dispatch: Dispatch<*>, getState: Function) => {
-        const state = getState();
-        const { primaryToolbarButtons } = state['features/toolbox'];
         const buttonName = 'fullscreen';
-        const button = primaryToolbarButtons.get(buttonName);
+        const button = getButton(buttonName, getState());
 
         button.toggled = isFullScreen;
 
@@ -301,14 +285,7 @@ export function toggleFullScreen(isFullScreen: boolean): Function {
  */
 export function toggleToolbarButton(buttonName: string): Function {
     return (dispatch: Dispatch, getState: Function) => {
-        const state = getState();
-        const {
-            primaryToolbarButtons,
-            secondaryToolbarButtons
-        } = state['features/toolbox'];
-        const button
-            = primaryToolbarButtons.get(buttonName)
-                || secondaryToolbarButtons.get(buttonName);
+        const button = getButton(buttonName, getState());
 
         dispatch(setToolbarButton(buttonName, {
             toggled: !button.toggled

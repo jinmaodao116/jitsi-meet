@@ -1,4 +1,5 @@
 /* global JitsiMeetJS, config, APP */
+
 /**
  * Load the integration of a third-party analytics API such as Google
  * Analytics. Since we cannot guarantee the quality of the third-party service
@@ -101,26 +102,42 @@ class Analytics {
      * null.
      */
     init() {
-        let analytics = JitsiMeetJS.analytics;
-        if(!this.isEnabled() || !analytics)
+        const { analytics } = JitsiMeetJS;
+
+        if (!this.isEnabled() || !analytics)
             return;
 
-        this._loadHandlers()
-            .then(handlers => {
-                let permanentProperties = {
-                    userAgent: navigator.userAgent,
-                    roomName: APP.conference.roomName
+        this._loadHandlers().then(
+            handlers => {
+                const permanentProperties = {
+                    roomName: APP.conference.roomName,
+                    userAgent: navigator.userAgent
                 };
-                let {server, group} = APP.tokenData;
-                if(server) {
+
+                const { group, server } = APP.store.getState()['features/jwt'];
+
+                if (server) {
                     permanentProperties.server = server;
                 }
-                if(group) {
+                if (group) {
                     permanentProperties.group = group;
                 }
+                /**
+                 * optionally include local deployment information,
+                 * window.jitsiDeploymentInfo defined outside of application
+                 * to use, override contents in local.html
+                **/
+                if (window.jitsiDeploymentInfo) {
+                    for (var key in window.jitsiDeploymentInfo) {
+                        permanentProperties[key] 
+                            = window.jitsiDeploymentInfo[key];
+                    }
+                }
+
                 analytics.addPermanentProperties(permanentProperties);
                 analytics.setAnalyticsHandlers(handlers);
-            }, error => analytics.dispose() && console.error(error));
+            },
+            error => analytics.dispose() && console.error(error));
 
     }
 }

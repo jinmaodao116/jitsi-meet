@@ -14,6 +14,10 @@
     "defaultNickname": "ex. Jane Pink",
     "defaultLink": "e.g. __url__",
     "callingName": "__name__",
+    "audioOnly": {
+        "audioOnly": "Audio only",
+        "featureToggleDisabled": "Toggling of __feature__ is disabled while in audio only mode"
+    },
     "userMedia": {
       "react-nativeGrantPermissions": "Select <b><i>Allow</i></b> when your browser asks for permissions.",
       "chromeGrantPermissions": "Select <b><i>Allow</i></b> when your browser asks for permissions.",
@@ -92,6 +96,7 @@
         "rejoinKeyTitle": "Rejoin"
     },
     "toolbar": {
+        "audioonly": "Enable / Disable audio only mode (saves bandwidth)",
         "mute": "Mute / Unmute",
         "videomute": "Start / Stop camera",
         "authenticate": "Authenticate",
@@ -212,6 +217,7 @@
     },
     "dialog": {
         "add": "Add",
+        "allow": "Allow",
         "kickMessage": "Ouch! You have been kicked out of the meet!",
         "popupError": "Your browser is blocking popup windows from this site. Please enable popups in your browser's security settings and try again.",
         "passwordErrorTitle": "Password Error",
@@ -271,8 +277,6 @@
         "Save": "Save",
         "recording": "Recording",
         "recordingToken": "Enter recording token",
-        "Dial": "Dial",
-        "sipMsg": "Enter SIP number",
         "passwordCheck": "Are you sure you would like to remove your password?",
         "passwordMsg": "Set a password to lock your room",
         "shareLink": "Share the link to the call",
@@ -330,7 +334,9 @@
         "muteParticipantTitle": "Mute this participant?",
         "muteParticipantBody": "You won't be able to unmute them, but they can unmute themselves at any time.",
         "muteParticipantButton": "Mute",
-        "remoteControlTitle": "Remote Control",
+        "remoteControlTitle": "Remote desktop control",
+        "remoteControlRequestMessage": "Will you allow __user__ to remotely control your desktop?",
+        "remoteControlShareScreenWarning": "Note that if you press \"Allow\" you will share your screen!",
         "remoteControlDeniedMessage": "__user__ rejected your remote control request!",
         "remoteControlAllowedMessage": "__user__ accepted your remote control request!",
         "remoteControlErrorMessage": "An error occurred while trying to request remote control permissions from __user__!",
@@ -420,18 +426,35 @@
         "speakerTime": "Speaker Time"
     },
     "deviceSelection": {
-        "currentlyVideoMuted": "Video is currently muted",
         "deviceSettings": "Device settings",
         "noPermission": "Permission not granted",
+        "previewUnavailable": "Preview unavailable",
         "selectADevice": "Select a device",
         "testAudio": "Test sound"
     },
     "invite": {
         "addPassword": "Add password",
+        "callNumber": "Call __number__",
+        "enterID": "Enter Meeting ID: __conferenceID__ following by # to dial in from a phone",
+        "howToDialIn": "To dial in, use one of the following numbers and meeting ID",
         "hidePassword": "Hide password",
         "inviteTo": "Invite people to __conferenceName__",
+        "invitedYouTo": "__userName__ has invited you to the __inviteURL__ conference",
         "locked": "This call is locked. New callers must have the link and enter the password to join.",
         "showPassword": "Show password",
         "unlocked": "This call is unlocked. Any new caller with the link may join the call."
+    },
+    "videoStatus": {
+      "hd": "HD",
+      "hdVideo": "HD video",
+      "sd": "SD",
+      "sdVideo": "SD video"
+    },
+    "dialOut": {
+        "dial": "Dial",
+        "dialOut": "Call a phone number",
+        "statusMessage": "is now __status__",
+        "enterPhone": "Enter phone number",
+        "phoneNotAllowed": "Oh, we don't support that destination yet! Sorry!"
     }
 }

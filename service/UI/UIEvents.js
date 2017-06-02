@@ -20,6 +20,7 @@ export default {
     START_MUTED_CHANGED: "UI.start_muted_changed",
     AUDIO_MUTED: "UI.audio_muted",
     VIDEO_MUTED: "UI.video_muted",
+    VIDEO_UNMUTING_WHILE_AUDIO_ONLY: "UI.video_unmuting_while_audio_only",
     ETHERPAD_CLICKED: "UI.etherpad_clicked",
     SHARED_VIDEO_CLICKED: "UI.start_shared_video",
     /**
@@ -33,6 +34,10 @@ export default {
     TOGGLE_FULLSCREEN: "UI.toogle_fullscreen",
     FULLSCREEN_TOGGLED: "UI.fullscreen_toggled",
     AUTH_CLICKED: "UI.auth_clicked",
+    /**
+     * Notifies that the audio only mode was toggled.
+     */
+    TOGGLE_AUDIO_ONLY: "UI.toggle_audioonly",
     TOGGLE_CHAT: "UI.toggle_chat",
     TOGGLE_SETTINGS: "UI.toggle_settings",
     TOGGLE_CONTACT_LIST: "UI.toggle_contact_list",
@@ -60,13 +65,18 @@ export default {
      * @see {TOGGLE_FILMSTRIP}
      */
     TOGGLED_FILMSTRIP: "UI.toggled_filmstrip",
+
+    /**
+     * Notifies that the filmstrip has updated its appearance, such as by
+     * toggling or removing videos or adding videos.
+     */
+    UPDATED_FILMSTRIP_DISPLAY: "UI.updated_filmstrip_display",
     TOGGLE_SCREENSHARING: "UI.toggle_screensharing",
     TOGGLED_SHARED_DOCUMENT: "UI.toggled_shared_document",
     CONTACT_CLICKED: "UI.contact_clicked",
     HANGUP: "UI.hangup",
     LOGOUT: "UI.logout",
     RECORDING_TOGGLED: "UI.recording_toggled",
-    SIP_DIAL: "UI.sip_dial",
     SUBJECT_CHANGED: "UI.subject_changed",
     VIDEO_DEVICE_CHANGED: "UI.video_device_changed",
     AUDIO_DEVICE_CHANGED: "UI.audio_device_changed",

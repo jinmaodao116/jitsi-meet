@@ -20,6 +20,7 @@ import {
     LOCK_STATE_CHANGED,
     SET_AUDIO_ONLY,
     _SET_AUDIO_ONLY_VIDEO_MUTED,
+    SET_LARGE_VIDEO_HD_STATUS,
     SET_LASTN,
     SET_PASSWORD,
     SET_PASSWORD_FAILED,
@@ -120,12 +121,11 @@ function _addConferenceListeners(conference, dispatch) {
  * @returns {void}
  */
 function _setLocalParticipantData(conference, state) {
-    const localParticipant
-        = getLocalParticipant(state['features/base/participants']);
+    const { avatarID } = getLocalParticipant(state);
 
     conference.removeCommand(AVATAR_ID_COMMAND);
     conference.sendCommand(AVATAR_ID_COMMAND, {
-        value: localParticipant.avatarID
+        value: avatarID
     });
 }
 
@@ -182,9 +182,9 @@ export function conferenceJoined(conference) {
  * @param {JitsiConference} conference - The JitsiConference instance which was
  * left by the local participant.
  * @returns {{
- *      type: CONFERENCE_LEFT,
- *      conference: JitsiConference
- *  }}
+ *     type: CONFERENCE_LEFT,
+ *     conference: JitsiConference
+ * }}
  */
 export function conferenceLeft(conference) {
     return {
@@ -201,9 +201,9 @@ export function conferenceLeft(conference) {
  * @param {string} room - The room (name) which identifies the conference the
  * local participant will (try to) join.
  * @returns {{
- *      type: CONFERENCE_WILL_JOIN,
- *      room: string
- *  }}
+ *     type: CONFERENCE_WILL_JOIN,
+ *     room: string
+ * }}
  */
 function _conferenceWillJoin(room) {
     return {
@@ -221,9 +221,9 @@ function _conferenceWillJoin(room) {
  * @param {JitsiConference} conference - The JitsiConference instance which will
  * be left by the local participant.
  * @returns {{
- *      type: CONFERENCE_LEFT,
- *      conference: JitsiConference
- *  }}
+ *     type: CONFERENCE_LEFT,
+ *     conference: JitsiConference
+ * }}
  */
 export function conferenceWillLeave(conference) {
     return {
@@ -355,6 +355,23 @@ export function _setAudioOnlyVideoMuted(muted: boolean) {
             muted
         });
         dispatch(setVideoMuted(muted));
+    };
+}
+
+/**
+ * Action to set whether or not the currently displayed large video is in
+ * high-definition.
+ *
+ * @param {boolean} isLargeVideoHD - True if the large video is high-definition.
+ * @returns {{
+ *     type: SET_LARGE_VIDEO_HD_STATUS,
+ *     isLargeVideoHD: boolean
+ * }}
+ */
+export function setLargeVideoHDStatus(isLargeVideoHD) {
+    return {
+        type: SET_LARGE_VIDEO_HD_STATUS,
+        isLargeVideoHD
     };
 }
 

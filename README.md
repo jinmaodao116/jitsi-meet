@@ -19,6 +19,9 @@ You can download Debian/Ubuntu binaries:
 * [testing](https://download.jitsi.org/testing/) ([instructions](https://jitsi.org/Main/InstallJitsiMeetDebianTestingRepository))
 * [nightly](https://download.jitsi.org/unstable/) ([instructions](https://jitsi.org/Main/InstallJitsiMeetDebianNightlyRepository))
 
+You can download source archives (produced by ```make source-package```):
+* [source builds](https://download.jitsi.org/jitsi-meet/src/)
+
 You can get our mobile versions from here:
 * [Android](https://play.google.com/store/apps/details?id=org.jitsi.meet)
 * [iOS](https://itunes.apple.com/us/app/jitsi-meet/id1165103905)
@@ -96,9 +99,6 @@ Jitsi Meet provides a very flexible way of embedding it in external applications
 ## Mobile app
 Jitsi Meet is also available as a React Native application for Android and iOS.
 Instructions on how to build it can be  found [here](doc/mobile.md).
-
-## Discuss
-Please use the [Jitsi dev mailing list](http://lists.jitsi.org/pipermail/dev/) to discuss feature requests before opening an issue on Github.
 
 ## Acknowledgements
 

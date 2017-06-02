@@ -5,38 +5,10 @@ import React from 'react';
 import UIEvents from '../../../service/UI/UIEvents';
 
 import { openInviteDialog } from '../invite';
+import { openDialOutDialog } from '../dial-out';
 
 declare var APP: Object;
-declare var config: Object;
 declare var JitsiMeetJS: Object;
-
-/**
- * Shows SIP number dialog.
- *
- * @returns {void}
- */
-function _showSIPNumberInput() {
-    const defaultNumber = config.defaultSipNumber || '';
-    const msgString
-        = `<input class="input-control" name="sipNumber" type="text" value="${
-            defaultNumber}" autofocus>`;
-
-    APP.UI.messageHandler.openTwoButtonDialog({
-        focus: ':input:first',
-        leftButtonKey: 'dialog.Dial',
-        msgString,
-        titleKey: 'dialog.sipMsg',
-
-        // eslint-disable-next-line max-params
-        submitFunction(event, value, message, formValues) {
-            const { sipNumber } = formValues;
-
-            if (value && sipNumber) {
-                APP.UI.emitEvent(UIEvents.SIP_DIAL, sipNumber);
-            }
-        }
-    });
-}
 
 /**
  * All toolbar buttons' descriptors.
@@ -59,9 +31,23 @@ export default {
                 APP.UI.emitEvent(UIEvents.VIDEO_MUTED, true);
             }
         },
+        popups: [
+            {
+                className: 'loginmenu',
+                dataAttr: 'audioOnly.featureToggleDisabled',
+                dataInterpolate: { feature: 'video mute' },
+                id: 'unmuteWhileAudioOnly'
+            }
+        ],
         shortcut: 'V',
         shortcutAttr: 'toggleVideoPopover',
         shortcutFunc() {
+            if (APP.conference.isAudioOnly()) {
+                APP.UI.emitEvent(UIEvents.VIDEO_UNMUTING_WHILE_AUDIO_ONLY);
+
+                return;
+            }
+
             JitsiMeetJS.analytics.sendEvent('shortcut.videomute.toggled');
             APP.conference.toggleVideoMuted();
         },
@@ -137,6 +123,14 @@ export default {
             }
             APP.UI.emitEvent(UIEvents.TOGGLE_SCREENSHARING);
         },
+        popups: [
+            {
+                className: 'loginmenu',
+                dataAttr: 'audioOnly.featureToggleDisabled',
+                dataInterpolate: { feature: 'screen sharing' },
+                id: 'screenshareWhileAudioOnly'
+            }
+        ],
         shortcut: 'D',
         shortcutAttr: 'toggleDesktopSharingPopover',
         shortcutFunc() {
@@ -145,6 +139,23 @@ export default {
         },
         shortcutDescription: 'keyboardShortcuts.toggleScreensharing',
         tooltipKey: 'toolbar.sharescreen'
+    },
+
+    /**
+     * The descriptor of the dial out toolbar button.
+     */
+    dialout: {
+        classNames: [ 'button', 'icon-telephone' ],
+        enabled: true,
+
+        // Will be displayed once the SIP calls functionality is detected.
+        hidden: true,
+        id: 'toolbar_button_dial_out',
+        onClick() {
+            JitsiMeetJS.analytics.sendEvent('toolbar.sip.clicked');
+            APP.store.dispatch(openDialOutDialog());
+        },
+        tooltipKey: 'dialOut.dialOut'
     },
 
     /**
@@ -373,22 +384,5 @@ export default {
             }
         ],
         tooltipKey: 'toolbar.sharedvideo'
-    },
-
-    /**
-     * The descriptor of the SIP call toolbar button.
-     */
-    sip: {
-        classNames: [ 'button', 'icon-telephone' ],
-        enabled: true,
-
-        // Will be displayed once the SIP calls functionality is detected.
-        hidden: true,
-        id: 'toolbar_button_sip',
-        onClick() {
-            JitsiMeetJS.analytics.sendEvent('toolbar.sip.clicked');
-            _showSIPNumberInput();
-        },
-        tooltipKey: 'toolbar.sip'
     }
 };

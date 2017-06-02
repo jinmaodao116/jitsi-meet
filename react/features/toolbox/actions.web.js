@@ -1,27 +1,34 @@
 /* @flow */
 
+import { compose } from 'redux';
+
 import Recording from '../../../modules/UI/recording/Recording';
 import SideContainerToggler
     from '../../../modules/UI/side_pannels/SideContainerToggler';
-import UIUtil from '../../../modules/UI/util/UIUtil';
 import UIEvents from '../../../service/UI/UIEvents';
+import UIUtil from '../../../modules/UI/util/UIUtil';
 
 import {
+    changeLocalRaiseHand,
     clearToolboxTimeout,
     setSubjectSlideIn,
     setToolbarButton,
     setToolboxTimeout,
     setToolboxTimeoutMS,
     setToolboxVisible,
+    toggleFullScreen,
     toggleToolbarButton
 } from './actions.native';
 
-export * from './actions.native';
+import { SET_DEFAULT_TOOLBOX_BUTTONS } from './actionTypes';
+import { getDefaultToolboxButtons } from './functions';
 
 declare var $: Function;
 declare var APP: Object;
 declare var config: Object;
 declare var interfaceConfig: Object;
+
+export * from './actions.native';
 
 /**
  * Checks whether desktop sharing is enabled and whether
@@ -73,6 +80,87 @@ export function dockToolbox(dock: boolean): Function {
 }
 
 /**
+ * Returns button on mount/unmount handlers with dispatch function stored in
+ * closure.
+ *
+ * @param {Function} dispatch - Redux action dispatcher.
+ * @param {Function} getState - The function fetching the Redux state.
+ * @returns {Object} Button on mount/unmount handlers.
+ * @private
+ */
+function _getButtonHandlers(dispatch, getState) {
+    const { isGuest } = getState()['features/jwt'];
+
+    const localRaiseHandHandler = compose(dispatch, changeLocalRaiseHand);
+    const toggleFullScreenHandler = compose(dispatch, toggleFullScreen);
+
+    return {
+        /**
+         * Mount handler for desktop button.
+         *
+         * @type {Object}
+         */
+        desktop: {
+            onMount: () => dispatch(showDesktopSharingButton())
+        },
+
+        /**
+         * Mount/Unmount handler for toggling fullscreen button.
+         *
+         * @type {Object}
+         */
+        fullscreen: {
+            onMount: () =>
+                APP.UI.addListener(
+                    UIEvents.FULLSCREEN_TOGGLED,
+                    toggleFullScreenHandler),
+            onUnmount: () =>
+                APP.UI.removeListener(
+                    UIEvents.FULLSCREEN_TOGGLED,
+                    toggleFullScreenHandler)
+        },
+
+        /**
+         * Mount handler for profile button.
+         *
+         * @type {Object}
+         */
+        profile: {
+            onMount: () =>
+            isGuest
+            || dispatch(setProfileButtonUnclickable(true))
+        },
+
+        /**
+         * Mount/Unmount handlers for raisehand button.
+         *
+         * @type {button}
+         */
+        raisehand: {
+            onMount: () =>
+                APP.UI.addListener(
+                    UIEvents.LOCAL_RAISE_HAND_CHANGED,
+                    localRaiseHandHandler),
+            onUnmount: () =>
+                APP.UI.removeListener(
+                    UIEvents.LOCAL_RAISE_HAND_CHANGED,
+                    localRaiseHandHandler)
+        },
+
+        /**
+         * Mount handler for recording button.
+         *
+         * @type {Object}
+         */
+        recording: {
+            onMount: () =>
+            config.enableRecording
+            && dispatch(showRecordingButton())
+        }
+    };
+}
+
+/**
  * Hides the toolbox.
  *
  * @param {boolean} force - True to force the hiding of the toolbox without
@@ -106,6 +194,24 @@ export function hideToolbox(force: boolean = false): Function {
             dispatch(setToolboxVisible(false));
             dispatch(setSubjectSlideIn(false));
         }
+    };
+}
+
+/**
+ * Sets the default toolbar buttons of the Toolbox.
+ *
+ * @returns {Function}
+ */
+export function setDefaultToolboxButtons(): Function {
+    return (dispatch: Dispatch, getState: Function) => {
+        // Save dispatch function in closure.
+        const buttonHandlers = _getButtonHandlers(dispatch, getState);
+        const toolboxButtons = getDefaultToolboxButtons(buttonHandlers);
+
+        dispatch({
+            type: SET_DEFAULT_TOOLBOX_BUTTONS,
+            ...toolboxButtons
+        });
     };
 }
 
@@ -154,9 +260,8 @@ export function showDesktopSharingButton(): Function {
 export function showDialPadButton(show: boolean): Function {
     return (dispatch: Dispatch<*>) => {
         const buttonName = 'dialpad';
-        const shouldShow = UIUtil.isButtonEnabled(buttonName) && show;
 
-        if (shouldShow) {
+        if (show && UIUtil.isButtonEnabled(buttonName)) {
             dispatch(setToolbarButton(buttonName, {
                 hidden: false
             }));
@@ -187,11 +292,9 @@ export function showRecordingButton(): Function {
 export function showSharedVideoButton(): Function {
     return (dispatch: Dispatch<*>) => {
         const buttonName = 'sharedvideo';
-        const shouldShow
-            = UIUtil.isButtonEnabled(buttonName)
-                && !config.disableThirdPartyRequests;
 
-        if (shouldShow) {
+        if (UIUtil.isButtonEnabled(buttonName)
+                && !config.disableThirdPartyRequests) {
             dispatch(setToolbarButton(buttonName, {
                 hidden: false
             }));
@@ -200,23 +303,23 @@ export function showSharedVideoButton(): Function {
 }
 
 /**
- * Shows SIP call button if it's required and appropriate
+ * Shows the dial out button if it's required and appropriate
  * flag is passed.
  *
  * @param {boolean} show - Flag showing whether to show button or not.
  * @returns {Function}
  */
-export function showSIPCallButton(show: boolean): Function {
-    return (dispatch: Dispatch<*>) => {
-        const buttonName = 'sip';
-        const shouldShow
-            = APP.conference.sipGatewayEnabled()
-                && UIUtil.isButtonEnabled(buttonName)
-                && show;
+export function showDialOutButton(show: boolean): Function {
+    return (dispatch: Dispatch<*>, getState: Function) => {
+        const buttonName = 'dialout';
 
-        if (shouldShow) {
+        if (show
+                && APP.conference.sipGatewayEnabled()
+                && UIUtil.isButtonEnabled(buttonName)
+                && (!config.enableUserRolesBasedOnToken
+                    || !getState()['features/jwt'].isGuest)) {
             dispatch(setToolbarButton(buttonName, {
-                hidden: !shouldShow
+                hidden: false
             }));
         }
     };

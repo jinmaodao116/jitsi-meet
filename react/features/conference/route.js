@@ -1,9 +1,8 @@
 /* global APP, config */
 
-import BoshAddressChoice from '../../../modules/config/BoshAddressChoice';
-import HttpConfigFetch from '../../../modules/config/HttpConfigFetch';
 import ConferenceUrl from '../../../modules/URL/ConferenceUrl';
 
+import { chooseBOSHAddress, obtainConfig } from '../base/config';
 import { RouteRegistry } from '../base/react';
 
 import { Conference } from './components';
@@ -24,10 +23,10 @@ RouteRegistry.register({
 });
 
 /**
- *  Initialization of the app.
+ * Initialization of the app.
  *
- *  @private
- *  @returns {void}
+ * @private
+ * @returns {void}
  */
 function _initConference() {
     _setTokenData();
@@ -47,15 +46,11 @@ function _initConference() {
  * @returns {Promise}
  */
 function _obtainConfig(location, room) {
-    return new Promise((resolve, reject) => {
-        HttpConfigFetch.obtainConfig(location, room, (success, error) => {
-            if (success) {
-                resolve();
-            } else {
-                reject(error);
-            }
-        });
-    });
+    return new Promise((resolve, reject) =>
+        obtainConfig(location, room, (success, error) => {
+            success ? resolve() : reject(error);
+        })
+    );
 }
 
 /**
@@ -84,10 +79,12 @@ function _obtainConfigAndInit() {
                 .catch(err => {
                     // Show obtain config error.
                     APP.UI.messageHandler.openReportDialog(
-                        null, 'dialog.connectError', err);
+                        null,
+                        'dialog.connectError',
+                        err);
                 });
         } else {
-            BoshAddressChoice.chooseAddress(config, room);
+            chooseBOSHAddress(config, room);
             _initConference();
         }
     }
@@ -113,12 +110,11 @@ function _obtainConfigHandler() {
  * @returns {void}
  */
 function _setTokenData() {
-    const localUser = APP.tokenData.caller;
+    const state = APP.store.getState();
+    const { caller } = state['features/jwt'];
 
-    if (localUser) {
-        const email = localUser.getEmail();
-        const avatarUrl = localUser.getAvatarUrl();
-        const name = localUser.getName();
+    if (caller) {
+        const { avatarUrl, email, name } = caller;
 
         APP.settings.setEmail((email || '').trim(), true);
         APP.settings.setAvatarUrl((avatarUrl || '').trim());

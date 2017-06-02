@@ -1,28 +1,45 @@
 /* @flow */
 
 /**
- * Returns current domain.
+ * Retrieves a simplified version of the conference/location URL stripped of URL
+ * params (i.e. query/search and hash) which should be used for sending invites.
  *
- * @param {(Function|Object)} stateOrGetState - Redux getState() method or Redux
- * state.
- * @returns {(string|undefined)}
+ * @param {Function|Object} stateOrGetState - The redux state or redux's
+ * {@code getState} function.
+ * @returns {string|undefined}
  */
-export function getDomain(stateOrGetState: Function | Object) {
+export function getInviteURL(stateOrGetState: Function | Object): ?string {
     const state
         = typeof stateOrGetState === 'function'
             ? stateOrGetState()
             : stateOrGetState;
-    const { options } = state['features/base/connection'];
-    let domain;
+    const { locationURL } = state['features/base/connection'];
+    let inviteURL;
 
-    try {
-        domain = options.hosts.domain;
-    } catch (e) {
-        // XXX The value of options or any of the properties descending from it
-        // may be undefined at some point in the execution (e.g. on start).
-        // Instead of multiple checks for the undefined value, we just wrap it
-        // in a try-catch block.
+    if (locationURL) {
+        inviteURL = getURLWithoutParams(locationURL).href;
     }
 
-    return domain;
+    return inviteURL;
+}
+
+/**
+ * Gets a {@link URL} without hash and query/search params from a specific
+ * {@code URL}.
+ *
+ * @param {URL} url - The {@code URL} which may have hash and query/search
+ * params.
+ * @returns {URL}
+ */
+export function getURLWithoutParams(url: URL): URL {
+    const { hash, search } = url;
+
+    if ((hash && hash.length > 1) || (search && search.length > 1)) {
+        // eslint-disable-next-line no-param-reassign
+        url = new URL(url.href);
+        url.hash = '';
+        url.search = '';
+    }
+
+    return url;
 }

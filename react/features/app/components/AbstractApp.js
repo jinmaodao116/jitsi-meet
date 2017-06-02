@@ -39,7 +39,7 @@ export class AbstractApp extends Component {
          * The URL, if any, with which the app was launched.
          */
         url: React.PropTypes.string
-    }
+    };
 
     /**
      * Initializes a new AbstractApp instance.
@@ -84,11 +84,12 @@ export class AbstractApp extends Component {
         // business logic in the React Component (i.e. UI) AbstractApp now.
         let localParticipant;
 
-        if (typeof APP !== 'undefined') {
+        if (typeof APP === 'object') {
             localParticipant = {
                 avatarID: APP.settings.getAvatarId(),
                 avatarURL: APP.settings.getAvatarUrl(),
-                email: APP.settings.getEmail()
+                email: APP.settings.getEmail(),
+                name: APP.settings.getDisplayName()
             };
         }
         dispatch(localParticipantJoined(localParticipant));
@@ -267,13 +268,13 @@ export class AbstractApp extends Component {
         // By default, open the domain configured in the configuration file
         // which may be the domain at which the whole server infrastructure is
         // deployed.
-        const config = this.props.config;
+        const { config } = this.props;
 
         if (typeof config === 'object') {
-            const hosts = config.hosts;
+            const { hosts } = config;
 
             if (typeof hosts === 'object') {
-                const domain = hosts.domain;
+                const { domain } = hosts;
 
                 if (domain) {
                     return `https://${domain}`;

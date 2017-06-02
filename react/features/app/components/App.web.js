@@ -1,5 +1,5 @@
-import { appInit } from '../actions';
 import { AbstractApp } from './AbstractApp';
+import { getLocationContextRoot } from '../functions';
 
 import '../../room-lock';
 
@@ -38,17 +38,6 @@ export class App extends AbstractApp {
     }
 
     /**
-     * Inits the app before component will mount.
-     *
-     * @inheritdoc
-     */
-    componentWillMount(...args) {
-        super.componentWillMount(...args);
-
-        this._getStore().dispatch(appInit());
-    }
-
-    /**
      * Gets a Location object from the window with information about the current
      * location of the document.
      *
@@ -65,13 +54,7 @@ export class App extends AbstractApp {
      * @returns {string} The context root of window.location i.e. this Web App.
      */
     _getWindowLocationContextRoot() {
-        const pathname = this.getWindowLocation().pathname;
-        const contextRootEndIndex = pathname.lastIndexOf('/');
-
-        return (
-            contextRootEndIndex === -1
-                ? '/'
-                : pathname.substring(0, contextRootEndIndex + 1));
+        return getLocationContextRoot(this.getWindowLocation());
     }
 
     /**
