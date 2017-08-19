@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
 import { JitsiParticipantConnectionStatus } from '../../lib-jitsi-meet';
+import { prefetch } from '../../../mobile/image-cache';
 import {
     MEDIA_TYPE,
     shouldRenderVideoTrack,
@@ -12,7 +13,7 @@ import { getTrackByMediaTypeAndParticipant } from '../../tracks';
 
 import Avatar from './Avatar';
 import { getAvatarURL, getParticipantById } from '../functions';
-import { styles } from './styles';
+import styles from './styles';
 
 /**
  * Implements a React Component which depicts a specific participant's avatar
@@ -27,6 +28,14 @@ class ParticipantView extends Component {
      * @static
      */
     static propTypes = {
+        /**
+         * The indicator which determines whether conferencing is in audio-only
+         * mode.
+         *
+         * @private
+         */
+        _audioOnly: React.PropTypes.bool,
+
         /**
          * The source (e.g. URI, URL) of the avatar image of the participant
          * with {@link #participantId}.
@@ -107,7 +116,9 @@ class ParticipantView extends Component {
         // updated only after videoTrack is rendered.
         const waitForVideoStarted = false;
         const renderVideo
-            = (connectionStatus === JitsiParticipantConnectionStatus.ACTIVE)
+            = !this.props._audioOnly
+                && (connectionStatus
+                    === JitsiParticipantConnectionStatus.ACTIVE)
                 && shouldRenderVideoTrack(videoTrack, waitForVideoStarted);
 
         // Is the avatar to be rendered?
@@ -170,6 +181,7 @@ function _toBoolean(value, undefinedValue) {
  * (instance of) ParticipantView.
  * @private
  * @returns {{
+ *     _audioOnly: boolean,
  *     _avatar: string,
  *     _connectionStatus: string,
  *     _videoTrack: Track
@@ -187,9 +199,25 @@ function _mapStateToProps(state, ownProps) {
     if (participant) {
         avatar = getAvatarURL(participant);
         connectionStatus = participant.connectionStatus;
+
+        // Avatar (on React Native) now has the ability to generate an
+        // automatically-colored default image when no URI/URL is specified or
+        // when it fails to load. In order to make the coloring permanent(ish)
+        // per participant, Avatar will need something permanent(ish) per
+        // perticipant, obviously. A participant's ID is such a piece of data.
+        // But the local participant changes her ID as she joins, leaves.
+        // TODO @lyubomir: The participants may change their avatar URLs at
+        // runtime which means that, if their old and new avatar URLs fail to
+        // download, Avatar will change their automatically-generated colors.
+        avatar || participant.local || (avatar = `#${participant.id}`);
+
+        // ParticipantView knows before Avatar that an avatar URL will be used
+        // so it's advisable to prefetch here.
+        avatar && prefetch({ uri: avatar });
     }
 
     return {
+        _audioOnly: state['features/base/conference'].audioOnly,
         _avatar: avatar,
         _connectionStatus:
             connectionStatus

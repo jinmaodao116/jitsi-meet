@@ -70,7 +70,7 @@ const secondaryToolbarButtonIcon = {
 /**
  * The (conference) Toolbox/Toolbar related styles.
  */
-export const styles = createStyleSheet({
+export default createStyleSheet({
     /**
      * The style of the toolbar button in {@link #primaryToolbar} which
      * hangs the current conference up.
@@ -132,15 +132,6 @@ export const styles = createStyleSheet({
      * The icon style of the toolbar buttons in {@link #secondaryToolbar}.
      */
     secondaryToolbarButtonIcon,
-
-    /**
-     * The icon style of the toolbar button in {@link #secondaryToolbar} which
-     * toggles the audio-only mode of the current conference.
-     */
-    toggleAudioOnlyIcon: {
-        ...secondaryToolbarButtonIcon,
-        transform: [ { rotate: '135deg' } ]
-    },
 
     /**
      * The style of the root/top-level {@link Container} of {@link Toolbox}

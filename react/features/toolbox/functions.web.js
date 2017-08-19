@@ -3,50 +3,11 @@ import SideContainerToggler
 
 import defaultToolbarButtons from './defaultToolbarButtons';
 
-type MapOfAttributes = { [key: string]: * };
-
 declare var $: Function;
 declare var AJS: Object;
 declare var interfaceConfig: Object;
 
 export { abstractMapStateToProps } from './functions.native';
-
-/* eslint-disable flowtype/space-before-type-colon */
-
-/**
- * Takes toolbar button props and maps them to HTML attributes to set.
- *
- * @param {Object} props - Props set to the React component.
- * @returns {MapOfAttributes}
- */
-export function getButtonAttributesByProps(props: Object = {})
-        : MapOfAttributes {
-    // XXX Make sure to not modify props.classNames because that'd be bad
-    // practice.
-    const classNames = (props.classNames && [ ...props.classNames ]) || [];
-
-    props.toggled && classNames.push('toggled');
-    props.unclickable && classNames.push('unclickable');
-
-    const result: MapOfAttributes = {
-        className: classNames.join(' '),
-        'data-container': 'body',
-        'data-placement': 'bottom',
-        id: props.id
-    };
-
-    if (!props.enabled) {
-        result.disabled = 'disabled';
-    }
-
-    if (props.hidden) {
-        result.style = { display: 'none' };
-    }
-
-    return result;
-}
-
-/* eslint-enable flowtype/space-before-type-colon */
 
 /**
  * Returns an object which contains the default buttons for the primary and
@@ -64,7 +25,6 @@ export function getDefaultToolboxButtons(buttonHandlers: Object): Object {
 
     if (typeof interfaceConfig !== 'undefined'
             && interfaceConfig.TOOLBAR_BUTTONS) {
-        const { filmStripOnly } = interfaceConfig;
 
         toolbarButtons
             = interfaceConfig.TOOLBAR_BUTTONS.reduce(
@@ -84,9 +44,9 @@ export function getDefaultToolboxButtons(buttonHandlers: Object): Object {
                             };
                         }
 
-                        // In filmstrip-only mode we only add a button if it's
-                        // filmstrip-only enabled.
-                        if (!filmStripOnly || button.filmstripOnlyEnabled) {
+                        // If isDisplayed method is not defined, display the
+                        // button only for non-filmstripOnly mode
+                        if (button.isDisplayed()) {
                             acc[place].set(buttonName, button);
                         }
                     }
@@ -132,6 +92,19 @@ export function getToolbarClassNames(props: Object) {
         primaryToolbarClassName: primaryToolbarClassNames.join(' '),
         secondaryToolbarClassName: secondaryToolbarClassNames.join(' ')
     };
+}
+
+/**
+ * Indicates if a toolbar button is enabled.
+ *
+ * @param {string} name - The name of the setting section as defined in
+ * interface_config.js.
+ * @returns {boolean} - True to indicate that the given toolbar button
+ * is enabled, false - otherwise.
+ */
+export function isButtonEnabled(name) {
+    return interfaceConfig.TOOLBAR_BUTTONS.indexOf(name) !== -1
+            || interfaceConfig.MAIN_TOOLBAR_BUTTONS.indexOf(name) !== -1;
 }
 
 /**

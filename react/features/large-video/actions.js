@@ -5,7 +5,10 @@ import {
     getTrackByMediaTypeAndParticipant
 } from '../base/tracks';
 
-import { SELECT_LARGE_VIDEO_PARTICIPANT } from './actionTypes';
+import {
+    SELECT_LARGE_VIDEO_PARTICIPANT,
+    UPDATE_KNOWN_LARGE_VIDEO_RESOLUTION
+} from './actionTypes';
 
 /**
  * Signals conference to select a participant.
@@ -24,15 +27,15 @@ export function selectParticipant() {
             const id = largeVideo.participantId;
             const videoTrack
                 = getTrackByMediaTypeAndParticipant(
-                        tracks,
-                        MEDIA_TYPE.VIDEO,
-                        id);
+                    tracks,
+                    MEDIA_TYPE.VIDEO,
+                    id);
 
             try {
                 conference.selectParticipant(
-                        videoTrack && videoTrack.videoType === VIDEO_TYPE.CAMERA
-                            ? id
-                            : null);
+                    videoTrack && videoTrack.videoType === VIDEO_TYPE.CAMERA
+                        ? id
+                        : null);
             } catch (err) {
                 _handleParticipantError(err);
             }
@@ -61,6 +64,22 @@ export function selectParticipantInLargeVideo() {
 
             dispatch(selectParticipant());
         }
+    };
+}
+
+/**
+ * Updates the currently seen resolution of the video displayed on large video.
+ *
+ * @param {number} resolution - The current resolution (height) of the video.
+ * @returns {{
+ *     type: UPDATE_KNOWN_LARGE_VIDEO_RESOLUTION,
+ *     resolution: number
+ * }}
+ */
+export function updateKnownLargeVideoResolution(resolution) {
+    return {
+        type: UPDATE_KNOWN_LARGE_VIDEO_RESOLUTION,
+        resolution
     };
 }
 

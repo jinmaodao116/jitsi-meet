@@ -4,10 +4,29 @@ import I18nextXHRBackend from 'i18next-xhr-backend';
 import LANGUAGES_RESOURCES from '../../../../lang/languages.json';
 import MAIN_RESOURCES from '../../../../lang/main.json';
 
-import { DEFAULT_LANGUAGE, LANGUAGES } from './constants';
 import languageDetector from './languageDetector';
 
 declare var interfaceConfig: Object;
+
+/**
+ * The available/supported languages.
+ *
+ * XXX The element at index zero is the default language.
+ *
+ * @public
+ * @type {Array<string>}
+ */
+export const LANGUAGES = Object.keys(LANGUAGES_RESOURCES);
+
+/**
+ * The default language.
+ *
+ * XXX The element at index zero of {@link LANGUAGES} is the default language.
+ *
+ * @public
+ * @type {string} The default language.
+ */
+export const DEFAULT_LANGUAGE = LANGUAGES[0];
 
 /**
  * The options to initialize i18next with.
@@ -48,16 +67,16 @@ i18next
 
 // Add default language which is preloaded from the source code.
 i18next.addResourceBundle(
-        DEFAULT_LANGUAGE,
-        'main',
-        MAIN_RESOURCES,
-        /* deep */ true,
-        /* overwrite */ true);
+    DEFAULT_LANGUAGE,
+    'main',
+    MAIN_RESOURCES,
+    /* deep */ true,
+    /* overwrite */ true);
 i18next.addResourceBundle(
-        DEFAULT_LANGUAGE,
-        'languages',
-        LANGUAGES_RESOURCES,
-        /* deep */ true,
-        /* overwrite */ true);
+    DEFAULT_LANGUAGE,
+    'languages',
+    LANGUAGES_RESOURCES,
+    /* deep */ true,
+    /* overwrite */ true);
 
 export default i18next;

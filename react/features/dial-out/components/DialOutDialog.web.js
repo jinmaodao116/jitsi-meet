@@ -8,17 +8,21 @@ import { cancel, checkDialNumber, dial } from '../actions';
 import DialOutNumbersForm from './DialOutNumbersForm';
 
 /**
- * Implements a React Component which allows the user to dial out from the
- * conference.
+ * Implements a React {@link Component} which allows the user to dial out from
+ * the conference.
  */
 class DialOutDialog extends Component {
-
     /**
      * {@code DialOutDialog} component's property types.
      *
      * @static
      */
     static propTypes = {
+        /**
+         * The redux state representing the list of dial-out codes.
+         */
+        _dialOutCodes: React.PropTypes.array,
+
         /**
          * Property indicating if a dial number is allowed.
          */
@@ -91,7 +95,8 @@ class DialOutDialog extends Component {
                 titleKey = 'dialOut.dialOut'
                 width = 'small'>
                 { this._renderContent() }
-            </Dialog>);
+            </Dialog>
+        );
     }
 
     /**
@@ -109,7 +114,7 @@ class DialOutDialog extends Component {
     /**
      * Renders the dialog content.
      *
-     * @returns {XML}
+     * @returns {ReactElement}
      * @private
      */
     _renderContent() {
@@ -127,7 +132,7 @@ class DialOutDialog extends Component {
      * Renders the error message to display if the dial phone number is not
      * allowed.
      *
-     * @returns {XML}
+     * @returns {ReactElement}
      * @private
      */
     _renderErrorMessage() {
@@ -176,15 +181,23 @@ class DialOutDialog extends Component {
      * @returns {void}
      */
     _onDialNumberChange(dialCode, dialInput) {
-        // We remove all starting zeros from the dial input before attaching it
-        // to the country code.
-        const formattedDialInput = dialInput.replace(/^(0+)/, '');
+        let formattedDialInput, formattedNumber;
 
-        const dialNumber = `${dialCode}${formattedDialInput}`;
+        // if there are no dial out codes it is possible they are disabled
+        // so we get the input as is, it can be just a sip address
+        if (this.props._dialOutCodes) {
+            // We remove all starting zeros from the dial input before attaching
+            // it to the country code.
+            formattedDialInput = dialInput.replace(/^(0+)/, '');
 
-        const formattedNumber = this._formatDialNumber(dialNumber);
+            const dialNumber = `${dialCode}${formattedDialInput}`;
 
-        this.props.checkDialNumber(formattedNumber);
+            formattedNumber = this._formatDialNumber(dialNumber);
+
+            this.props.checkDialNumber(formattedNumber);
+        } else {
+            formattedNumber = formattedDialInput = dialInput;
+        }
 
         this.setState({
             dialNumber: formattedNumber,
@@ -205,9 +218,17 @@ class DialOutDialog extends Component {
  * }}
  */
 function _mapStateToProps(state) {
-    const { isDialNumberAllowed } = state['features/dial-out'];
+    const { dialOutCodes, isDialNumberAllowed } = state['features/dial-out'];
 
     return {
+        /**
+         * List of dial-out codes.
+         *
+         * @private
+         * @type {array}
+         */
+        _dialOutCodes: dialOutCodes,
+
         /**
          * Property indicating if a dial number is allowed.
          *
@@ -221,6 +242,6 @@ function _mapStateToProps(state) {
 export default translate(
     connect(_mapStateToProps, {
         cancel,
-        dial,
-        checkDialNumber
+        checkDialNumber,
+        dial
     })(DialOutDialog));

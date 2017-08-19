@@ -34,15 +34,13 @@ $tooltipBg: rgba(0,0,0, 0.7);
  * Toolbar
  */
 $defaultToolbarSize: 50px;
-$splitterToolbarButtonMargin: 18px;
-$toolbarBackground: rgba(0, 0, 0, 0.5);
-$toolbarBadgeBackground: #165ECC;
-$toolbarBadgeColor: #FFFFFF;
+$defaultFilmStripOnlyToolbarSize: 37px;
+$secToolbarFontSize: 1.9em;
+$secToolbarLineHeight: 45px;
+$toolbarAvatarPadding: 10px;
+$toolbarAvatarSize: 40px;
 $toolbarFontSize: 1.9em;
-$toolbarSelectBackground: rgba(0, 0, 0, .6);
-$toolbarTitleColor: #FFFFFF;
 $toolbarTitleFontSize: 19px;
-$toolbarToggleBackground: #12499C;
 
 /**
  * Main controls
@@ -88,20 +86,6 @@ $modalMockAKInputBorder: 1px solid #f4f5f7;
 $modalTextColor: #333;
 
 /**
- * Notifications
- */
-$notificationFontSize: 13px;
-$notificationColor: #FFFFFF;
-$notificationBackground: $tooltipBg;
-$notificationTitleColor: $notificationColor;
-$notificationMessageColor: $notificationColor;
-$notificationLinkColor: $notificationColor;
-$notificationOpacity: 0.9;
-$notificationPadding: 15px 20px;
-$notificationBorderRadius: 4px;
-$notificationWidth: 215px;
-
-/**
  * Misc.
  */
 $borderRadius: 4px;
@@ -123,13 +107,11 @@ $reloadZ: 20;
 $poweredByZ: 100;
 $ringingZ: 300;
 $sideToolbarContainerZ: 300;
-$toolbarZ: 400;
+$toolbarZ: 350;
 $tooltipsZ: 401;
 $dropdownMaskZ: 900;
 $dropdownZ: 901;
-$jitsipopoverZ: 1010;
-$centeredVideoLabelZ: 1011;
-$notificationZ: 1012;
+$centeredVideoLabelZ: 1010;
 $popoverZ: 1015;
 $overlayZ: 1016;
 

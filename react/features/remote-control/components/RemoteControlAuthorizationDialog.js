@@ -74,8 +74,9 @@ class RemoteControlAuthorizationDialog extends Component {
                 titleKey = 'dialog.remoteControlTitle'
                 width = 'small'>
                 {
-                    this.props.t('dialog.remoteControlRequestMessage',
-                    { user: this.props._displayName })
+                    this.props.t(
+                        'dialog.remoteControlRequestMessage',
+                        { user: this.props._displayName })
                 }
                 {
                     this._getAdditionalMessage()
@@ -93,7 +94,8 @@ class RemoteControlAuthorizationDialog extends Component {
     _getAdditionalMessage() {
         // FIXME: Once we have this information in redux we should
         // start getting it from there.
-        if (APP.conference.isSharingScreen) {
+        if (APP.conference.isSharingScreen
+                && APP.conference.getDesktopSharingSourceType() === 'screen') {
             return null;
         }
 
@@ -153,8 +155,10 @@ class RemoteControlAuthorizationDialog extends Component {
  */
 function _mapStateToProps(state, ownProps) {
     const { _displayName, participantId } = ownProps;
-    const participant = getParticipantById(
-            state['features/base/participants'], participantId);
+    const participant
+        = getParticipantById(
+            state['features/base/participants'],
+            participantId);
 
     return {
         _displayName: participant ? participant.name : _displayName

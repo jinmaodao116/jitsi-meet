@@ -1,28 +1,27 @@
+import { StatelessDropdownMenu } from '@atlaskit/dropdown-menu';
+import AKFieldText, { FieldText } from '@atlaskit/field-text';
+import ExpandIcon from '@atlaskit/icon/glyph/expand';
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import ExpandIcon from '@atlaskit/icon/glyph/expand';
-import { StatelessDropdownMenu } from '@atlaskit/dropdown-menu';
 
 import { translate } from '../../base/i18n';
-import CountryIcon from './CountryIcon';
-import { updateDialOutCodes } from '../actions';
 
-/**
- * The expand icon of the dropdown menu.
- *
- * @type {XML}
- */
-const EXPAND_ICON = <ExpandIcon label = 'expand' />;
+import { updateDialOutCodes } from '../actions';
+import CountryIcon from './CountryIcon';
 
 /**
  * The default value of the country if the fetch service is unavailable.
  *
- * @type {{name: string, dialCode: string, code: string}}
+ * @type {{
+ *     code: string,
+ *     dialCode: string,
+ *     name: string
+ * }}
  */
 const DEFAULT_COUNTRY = {
-    name: 'United States',
+    code: 'US',
     dialCode: '+1',
-    code: 'US'
+    name: 'United States'
 };
 
 /**
@@ -96,6 +95,8 @@ class DialOutNumbersForm extends Component {
         this._dialInputElem = null;
 
         // Bind event handlers so they are only bound once for every instance.
+        this._onDropdownTriggerInputChange
+            = this._onDropdownTriggerInputChange.bind(this);
         this._onInputChange = this._onInputChange.bind(this);
         this._onOpenChange = this._onOpenChange.bind(this);
         this._onSelect = this._onSelect.bind(this);
@@ -108,7 +109,7 @@ class DialOutNumbersForm extends Component {
      * display in the dropdown trigger.
      *
      * @inheritdoc
-     * returns {void}
+     * @returns {void}
      */
     componentDidMount() {
         const dialOutCodes = this.props._dialOutCodes;
@@ -125,7 +126,7 @@ class DialOutNumbersForm extends Component {
      * the dropdown trigger if not already set.
      *
      * @inheritdoc
-     * returns {void}
+     * @returns {void}
      */
     componentWillReceiveProps(nextProps) {
         if (!this.state.selectedCountry && nextProps._dialOutCodes) {
@@ -142,20 +143,20 @@ class DialOutNumbersForm extends Component {
     render() {
         const { t, _dialOutCodes } = this.props;
 
-        const items
-            = _dialOutCodes ? this._formatCountryCodes(_dialOutCodes) : [];
-
         return (
             <div className = 'form-control'>
-                { this._createDropdownMenu(items) }
+                { _dialOutCodes ? this._createDropdownMenu(
+                        this._formatCountryCodes(_dialOutCodes)) : null }
                 <div className = 'dial-out-input'>
-                    <input
+                    <AKFieldText
                         autoFocus = { true }
-                        className = 'input-control'
+                        isLabelHidden = { true }
+                        label = { 'dial-out-input-field' }
                         onChange = { this._onInputChange }
                         placeholder = { t('dialOut.enterPhone') }
                         ref = { this._setDialInputElement }
-                        type = 'text' />
+                        shouldFitContainer = { true }
+                        value = { this.state.dialInput } />
                 </div>
             </div>
         );
@@ -171,14 +172,16 @@ class DialOutNumbersForm extends Component {
         const { code, dialCode } = this.state.selectedCountry;
 
         return (
-            <StatelessDropdownMenu
-                isOpen = { this.state.isDropdownOpen }
-                items = { [ { items } ] }
-                onItemActivated = { this._onSelect }
-                onOpenChange = { this._onOpenChange }
-                shouldFitContainer = { true }>
-                { this._createDropdownTrigger(dialCode, code) }
-            </StatelessDropdownMenu>
+            <div className = 'dropdown-container'>
+                <StatelessDropdownMenu
+                    isOpen = { this.state.isDropdownOpen }
+                    items = { [ { items } ] }
+                    onItemActivated = { this._onSelect }
+                    onOpenChange = { this._onOpenChange }
+                    shouldFitContainer = { false }>
+                    { this._createDropdownTrigger(dialCode, code) }
+                </StatelessDropdownMenu>
+            </div>
         );
     }
 
@@ -198,13 +201,22 @@ class DialOutNumbersForm extends Component {
                 <CountryIcon
                     className = 'dial-out-flag-icon'
                     countryCode = { `${countryCode}` } />
-                <input
+                { /**
+                   * FIXME Replace FieldText with AtlasKit Button when an issue
+                   * with icons shrinking due to button text is fixed.
+                   */ }
+                <FieldText
                     className = 'input-control dial-out-code'
-                    readOnly = { true }
+                    isLabelHidden = { true }
+                    isReadOnly = { true }
+                    label = 'dial-out-code'
+                    onChange = { this._onDropdownTriggerInputChange }
                     type = 'text'
                     value = { dialCode || '' } />
                 <span className = 'dropdown-trigger-icon'>
-                    { EXPAND_ICON }
+                    <ExpandIcon
+                        label = 'expand'
+                        size = 'medium' />
                 </span>
             </div>
         );
@@ -219,18 +231,16 @@ class DialOutNumbersForm extends Component {
      * @returns {Array<Object>}
      */
     _formatCountryCodes(countryCodes) {
-
         return countryCodes.map(country => {
             const countryIcon
                 = <CountryIcon countryCode = { `${country.code}` } />;
-
             const countryElement
                 = <span>{countryIcon} { country.name }</span>;
 
             return {
                 content: `${country.dialCode}`,
-                elemBefore: countryElement,
-                country
+                country,
+                elemBefore: countryElement
             };
         });
     }
@@ -245,6 +255,18 @@ class DialOutNumbersForm extends Component {
         const { dialCode } = this.state.selectedCountry;
 
         this.props.onChange(dialCode, this.state.dialInput);
+    }
+
+    /**
+     * This is a no-op function used to stub out FieldText's onChange in order
+     * to prevent FieldText from printing prop type validation errors. FieldText
+     * is used as a trigger for the dropdown in {@code DialOutNumbersForm} to
+     * get the desired AtlasKit input look for the UI.
+     *
+     * @returns {void}
+     */
+    _onDropdownTriggerInputChange() {
+        // Intentionally left empty.
     }
 
     /**
@@ -342,5 +364,5 @@ function _mapStateToProps(state) {
     };
 }
 
-export default translate(connect(_mapStateToProps,
-    { updateDialOutCodes })(DialOutNumbersForm));
+export default translate(
+    connect(_mapStateToProps, { updateDialOutCodes })(DialOutNumbersForm));

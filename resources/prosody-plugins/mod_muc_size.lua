@@ -1,14 +1,13 @@
 -- Prosody IM
 -- Copyright (C) 2017 Atlassian
 --
--- This module requires net-url module
--- Install it using #luarocks install net-url
 
 local jid = require "util.jid";
 local it = require "util.iterators";
 local json = require "util.json";
 local iterators = require "util.iterators";
 local array = require"util.array";
+local wrap_async_run = module:require "util".wrap_async_run;
 
 local tostring = tostring;
 local neturl = require "net.url";
@@ -19,6 +18,7 @@ local enableTokenVerification
     = module:get_option_boolean("enable_roomsize_token_verification", false);
 
 local token_util = module:require "token/util".new(module);
+local get_room_from_jid = module:require "util".get_room_from_jid;
 
 -- no token configuration but required
 if token_util == nil and enableTokenVerification then
@@ -30,26 +30,6 @@ end
 -- defaults to "conference"
 local muc_domain_prefix
     = module:get_option_string("muc_mapper_domain_prefix", "conference");
-
---- Finds and returns room by its jid
--- @param room_jid the room jid to search in the muc component
--- @return returns room if found or nil
-function get_room_from_jid(room_jid)
-	local _, host = jid.split(room_jid);
-	local component = hosts[host];
-	if component then
-		local muc = component.modules.muc
-		if muc and rawget(muc,"rooms") then
-			-- We're running 0.9.x or 0.10 (old MUC API)
-			return muc.rooms[room_jid];
-		elseif muc and rawget(muc,"get_room_from_jid") then
-			-- We're running >0.10 (new MUC API)
-			return muc.get_room_from_jid(room_jid);
-		else
-			return
-		end
-	end
-end
 
 --- Verifies room name, domain name with the values in the token
 -- @param token the token we received
@@ -91,6 +71,10 @@ end
 -- @return GET response, containing a json with participants count,
 --         tha value is without counting the focus.
 function handle_get_room_size(event)
+    if (not event.request.url.query) then
+        return 400;
+    end
+
 	local params = parse(event.request.url.query);
 	local room_name = params["room"];
 	local domain_name = params["domain"];
@@ -140,6 +124,10 @@ end
 -- @param event the http event, holds the request query
 -- @return GET response, containing a json with participants details
 function handle_get_room (event)
+    if (not event.request.url.query) then
+        return 400;
+    end
+
 	local params = parse(event.request.url.query);
 	local room_name = params["room"];
 	local domain_name = params["domain"];
@@ -203,9 +191,9 @@ function module.load()
 	module:provides("http", {
 		default_path = "/";
 		route = {
-			["GET room-size"] = handle_get_room_size;
+			["GET room-size"] = function (event) return wrap_async_run(event,handle_get_room_size) end;
 			["GET sessions"] = function () return tostring(it.count(it.keys(prosody.full_sessions))); end;
-			["GET room"] = handle_get_room;
+			["GET room"] = function (event) return wrap_async_run(event,handle_get_room) end;
 		};
 	});
 end

@@ -4,11 +4,30 @@ import type { Dispatch } from 'redux';
 
 import {
     SET_AUDIO_MUTED,
+    SET_AUDIO_AVAILABLE,
     SET_CAMERA_FACING_MODE,
+    SET_VIDEO_AVAILABLE,
     SET_VIDEO_MUTED,
     TOGGLE_CAMERA_FACING_MODE
 } from './actionTypes';
-import { CAMERA_FACING_MODE } from './constants';
+import { CAMERA_FACING_MODE, VIDEO_MUTISM_AUTHORITY } from './constants';
+
+/**
+ * Action to adjust the availability of the local audio.
+ *
+ * @param {boolean} available - True if the local audio is to be marked as
+ * available or false if the local audio is not available.
+ * @returns {{
+ *      type: SET_AUDIO_AVAILABLE,
+ *      available: boolean
+ *  }}
+ */
+export function setAudioAvailable(available: boolean) {
+    return {
+        type: SET_AUDIO_AVAILABLE,
+        available
+    };
+}
 
 /**
  * Action to set the muted state of the local audio.
@@ -16,9 +35,9 @@ import { CAMERA_FACING_MODE } from './constants';
  * @param {boolean} muted - True if the local audio is to be muted or false if
  * the local audio is to be unmuted.
  * @returns {{
- *      type: SET_AUDIO_MUTED,
- *      muted: boolean
- *  }}
+ *     type: SET_AUDIO_MUTED,
+ *     muted: boolean
+ * }}
  */
 export function setAudioMuted(muted: boolean) {
     return {
@@ -32,9 +51,9 @@ export function setAudioMuted(muted: boolean) {
  *
  * @param {CAMERA_FACING_MODE} cameraFacingMode - The camera facing mode to set.
  * @returns {{
- *      type: SET_CAMERA_FACING_MODE,
- *      cameraFacingMode: CAMERA_FACING_MODE
- *  }}
+ *     type: SET_CAMERA_FACING_MODE,
+ *     cameraFacingMode: CAMERA_FACING_MODE
+ * }}
  */
 export function setCameraFacingMode(cameraFacingMode: CAMERA_FACING_MODE) {
     return {
@@ -44,19 +63,44 @@ export function setCameraFacingMode(cameraFacingMode: CAMERA_FACING_MODE) {
 }
 
 /**
+ * Action to adjust the availability of the local video.
+ *
+ * @param {boolean} available - True if the local video is to be marked as
+ * available or false if the local video is not available.
+ * @returns {{
+ *     type: SET_VIDEO_AVAILABLE,
+ *     available: boolean
+ * }}
+ */
+export function setVideoAvailable(available: boolean) {
+    return {
+        type: SET_VIDEO_AVAILABLE,
+        available
+    };
+}
+
+/**
  * Action to set the muted state of the local video.
  *
  * @param {boolean} muted - True if the local video is to be muted or false if
  * the local video is to be unmuted.
- * @returns {{
- *      type: SET_VIDEO_MUTED,
- *      muted: boolean
- *  }}
+ * @param {number} authority - The {@link VIDEO_MUTISM_AUTHORITY} which is
+ * muting/unmuting the local video.
+ * @returns {Function}
  */
-export function setVideoMuted(muted: boolean) {
-    return {
-        type: SET_VIDEO_MUTED,
-        muted
+export function setVideoMuted(
+        muted: boolean,
+        authority: number = VIDEO_MUTISM_AUTHORITY.USER) {
+    return (dispatch: Dispatch<*>, getState: Function) => {
+        const oldValue = getState()['features/base/media'].video.muted;
+
+        // eslint-disable-next-line no-bitwise
+        const newValue = muted ? oldValue | authority : oldValue & ~authority;
+
+        return dispatch({
+            type: SET_VIDEO_MUTED,
+            muted: newValue
+        });
     };
 }
 
@@ -99,6 +143,8 @@ export function toggleVideoMuted() {
     return (dispatch: Dispatch<*>, getState: Function) => {
         const muted = getState()['features/base/media'].video.muted;
 
-        return dispatch(setVideoMuted(!muted));
+        // XXX The following directly invokes the action creator in order to
+        // silence Flow.
+        return setVideoMuted(!muted)(dispatch, getState);
     };
 }

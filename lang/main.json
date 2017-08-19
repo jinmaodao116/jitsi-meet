@@ -91,11 +91,12 @@
         "title": "__app__ needs to use your microphone and camera."
     },
     "suspendedoverlay": {
-        "title": "Your video call was interrupted, because this computer went to sleep.",
-        "text": "Press <i>Rejoin</i> button to connect back to your conversation.",
+        "title": "Your video call was interrupted because this computer went to sleep.",
+        "text": "Press the <i>Rejoin</i> button to reconnect.",
         "rejoinKeyTitle": "Rejoin"
     },
     "toolbar": {
+        "addPeople": "Add people to your call",
         "audioonly": "Enable / Disable audio only mode (saves bandwidth)",
         "mute": "Mute / Unmute",
         "videomute": "Start / Stop camera",
@@ -199,7 +200,8 @@
         "transport_plural": "Transports:",
         "bandwidth": "Estimated bandwidth:",
         "na": "Come back here for connection information once the conference starts",
-        "peer_to_peer": " (p2p)"
+        "peer_to_peer": " (p2p)",
+        "turn": " (turn)"
     },
     "notify": {
         "disconnected": "disconnected",
@@ -299,7 +301,6 @@
         "enterDisplayName": "Please enter your display name",
         "extensionRequired": "Extension required:",
         "firefoxExtensionPrompt": "You need to install a Firefox extension in order to use screen sharing. Please try again after you <a href='__url__'>get it from here</a>!",
-        "rateExperience": "Please rate your meeting experience.",
         "feedbackHelp": "Your feedback will help us to improve our video experience.",
         "feedbackQuestion": "Tell us about your call!",
         "thankYou": "Thank you for using __appName__!",
@@ -331,6 +332,8 @@
         "goToStore": "Go to the webstore",
         "externalInstallationTitle": "Extension required",
         "externalInstallationMsg": "You need to install our desktop sharing extension.",
+        "inlineInstallationMsg": "You need to install our desktop sharing extension.",
+        "inlineInstallExtension": "Install now",
         "muteParticipantTitle": "Mute this participant?",
         "muteParticipantBody": "You won't be able to unmute them, but they can unmute themselves at any time.",
         "muteParticipantButton": "Mute",
@@ -340,6 +343,7 @@
         "remoteControlDeniedMessage": "__user__ rejected your remote control request!",
         "remoteControlAllowedMessage": "__user__ accepted your remote control request!",
         "remoteControlErrorMessage": "An error occurred while trying to request remote control permissions from __user__!",
+        "startRemoteControlErrorMessage": "An error occurred while trying to start the remote control session!",
         "remoteControlStopMessage": "The remote control session ended!",
         "close": "Close",
         "shareYourScreen": "Share your screen",
@@ -445,10 +449,18 @@
         "unlocked": "This call is unlocked. Any new caller with the link may join the call."
     },
     "videoStatus": {
-      "hd": "HD",
-      "hdVideo": "HD video",
-      "sd": "SD",
-      "sdVideo": "SD video"
+        "callQuality": "Call Quality",
+        "changeVideoTip": "Change your video quality from the left toolbar.",
+        "hd": "HD",
+        "highDefinition": "High definition",
+        "ld": "LD",
+        "lowDefinition": "Low definition",
+        "p2pEnabled": "Peer to Peer Enabled",
+        "p2pVideoQualityDescription": "In peer to peer mode, received call quality can only be toggled between high and audio only. Other settings will not be honored until peer to peer is exited.",
+        "recHighDefinitionOnly": "Will prefer high definition.",
+        "sd": "SD",
+        "standardDefinition": "Standard definition",
+        "qualityButtonTip": "Change received video quality"
     },
     "dialOut": {
         "dial": "Dial",
@@ -456,5 +468,30 @@
         "statusMessage": "is now __status__",
         "enterPhone": "Enter phone number",
         "phoneNotAllowed": "Oh, we don't support that destination yet! Sorry!"
+    },
+    "addPeople": {
+        "add": "Add",
+        "noResults": "No matching search results",
+        "searchPlaceholder": "Search for people and rooms to add",
+        "title": "Add people to your call",
+        "failedToAdd": "Failed to add participants"
+    },
+    "inlineDialogFailure": {
+        "msg": "We stumbled a bit.",
+        "retry": "Try again",
+        "support": "Support",
+        "supportMsg": "If this keeps happening, reach out to"
+    },
+    "deviceError": {
+        "cameraPermission": "Error obtaining camera permission",
+        "microphonePermission": "Error obtaining microphone permission"
+    },
+    "feedback": {
+        "average": "Average",
+        "bad": "Bad",
+        "good": "Good",
+        "rateExperience": "Please rate your meeting experience.",
+        "veryBad": "Very Bad",
+        "veryGood": "Very Good"
     }
 }

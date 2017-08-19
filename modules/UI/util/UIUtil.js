@@ -1,22 +1,4 @@
-/* global $, APP, AJS, interfaceConfig */
-
-import KeyboardShortcut from '../../keyboardshortcut/keyboardshortcut';
-
-/**
- * Associates tooltip element position (in the terms of
- * {@link UIUtil#setTooltip} which do not look like CSS <tt>position</tt>) with
- * AUI tooltip <tt>gravity</tt>.
- */
-const TOOLTIP_POSITIONS = {
-    'bottom': 'n',
-    'bottom-left': 'ne',
-    'bottom-right': 'nw',
-    'left': 'e',
-    'right': 'w',
-    'top': 's',
-    'top-left': 'se',
-    'top-right': 'sw'
-};
+/* global $, interfaceConfig */
 
 /**
  * Associates the default display type with corresponding CSS class
@@ -127,75 +109,6 @@ const IndicatorFontSizes = {
     },
 
     /**
-     * Sets a global handler for all tooltips. Once invoked, create a new
-     * tooltip by merely updating a DOM node with the appropriate class (e.g.
-     * <tt>tooltip-n</tt>) and the attribute <tt>content</tt>.
-     */
-    activateTooltips() {
-        AJS.$('[data-tooltip]').tooltip({
-            gravity() {
-                return this.getAttribute('data-tooltip');
-            },
-
-            title() {
-                return this.getAttribute('content');
-            },
-
-            html: true, // Handle multiline tooltips.
-
-            // The following two prevent tooltips from being stuck:
-            hoverable: false, // Make custom tooltips behave like native ones.
-            live: true // Attach listener to document element.
-        });
-    },
-
-    /**
-     * Sets the tooltip to the given element.
-     *
-     * @param element the element to set the tooltip to
-     * @param key the tooltip data-i18n key
-     * @param position the position of the tooltip in relation to the element
-     */
-    setTooltip(element, key, position) {
-        if (element) {
-            const selector = element.jquery ? element : $(element);
-
-            selector.attr('data-tooltip', TOOLTIP_POSITIONS[position]);
-            selector.attr('data-i18n', `[content]${key}`);
-
-            APP.translation.translateElement(selector);
-        }
-    },
-
-    /**
-     * Removes the tooltip to the given element.
-     *
-     * @param element the element to remove the tooltip from
-     */
-    removeTooltip(element) {
-        element.removeAttribute('data-tooltip', '');
-        element.removeAttribute('data-i18n','');
-        element.removeAttribute('content','');
-    },
-
-    /**
-     * Internal util function for generating tooltip title.
-     *
-     * @param element
-     * @returns {string|*}
-     * @private
-     */
-    _getTooltipText(element) {
-        let title = element.getAttribute('content');
-        let shortcut = element.getAttribute('shortcut');
-        if(shortcut) {
-            let shortcutString = KeyboardShortcut.getShortcutTooltip(shortcut);
-            title += ` ${shortcutString}`;
-        }
-        return title;
-    },
-
-    /**
      * Inserts given child element as the first one into the container.
      * @param container the container to which new child element will be added
      * @param newChild the new element that will be inserted into the container
@@ -209,17 +122,6 @@ const IndicatorFontSizes = {
         }
     },
 
-    /**
-     * Indicates if a toolbar button is enabled.
-     * @param name the name of the setting section as defined in
-     * interface_config.js and Toolbar.js
-     * @returns {boolean} {true} to indicate that the given toolbar button
-     * is enabled, {false} - otherwise
-     */
-    isButtonEnabled(name) {
-        return interfaceConfig.TOOLBAR_BUTTONS.indexOf(name) !== -1
-                || interfaceConfig.MAIN_TOOLBAR_BUTTONS.indexOf(name) !== -1;
-    },
     /**
      * Indicates if the setting section is enabled.
      *
@@ -303,16 +205,6 @@ const IndicatorFontSizes = {
         if (jquerySelector && jquerySelector.length > 0) {
             jquerySelector.css("visibility", isVisible ? "visible" : "hidden");
         }
-    },
-
-    hideDisabledButtons(mappings) {
-        var selector = Object.keys(mappings)
-          .map(function (buttonName) {
-                return UIUtil.isButtonEnabled(buttonName)
-                    ? null : "#" + mappings[buttonName].id; })
-          .filter(function (item) { return item; })
-          .join(',');
-        $(selector).hide();
     },
 
     redirect(url) {
@@ -447,70 +339,15 @@ const IndicatorFontSizes = {
     },
 
     /**
-     * Gets an "indicator" span for a video thumbnail.
-     * If element doesn't exist then creates it and appends
-     * video span container.
-     *
-     * @param {object} opts
-     * @param opts.indicatorId {String} - identificator of indicator
-     * @param opts.videoSpanId {String} - identificator of video span
-     * @param opts.content {String} HTML content of indicator
-     * @param opts.tooltip {String} - tooltip key for translation
-     *
-     * @returns {HTMLSpanElement} indicatorSpan
-     */
-    getVideoThumbnailIndicatorSpan(opts = {}) {
-        let indicatorId = opts.indicatorId;
-        let videoSpanId = opts.videoSpanId;
-        let indicators = $(`#${videoSpanId} [id="${indicatorId}"]`);
-        let indicatorSpan;
-
-        if (indicators.length <= 0) {
-            indicatorSpan = document.createElement('span');
-
-            indicatorSpan.className = 'indicator';
-            indicatorSpan.id = indicatorId;
-
-            if(opts.content) {
-                indicatorSpan.innerHTML = opts.content;
-            }
-
-            if (opts.tooltip) {
-                this.setTooltip(indicatorSpan, opts.tooltip, "top");
-                APP.translation.translateElement($(indicatorSpan));
-            }
-
-            this._resizeIndicator(indicatorSpan);
-
-            document.getElementById(videoSpanId)
-                .querySelector('.videocontainer__toptoolbar')
-                .appendChild(indicatorSpan);
-        } else {
-            indicatorSpan = indicators[0];
-        }
-
-        return indicatorSpan;
-    },
-
-    /**
-     * Resizing indicator element passing via argument
-     * according to the current thumbnail size
-     * @param {HTMLElement} indicator - indicator element
-     * @private
-     */
-    _resizeIndicator(indicator) {
-        let height = $('#localVideoContainer').height();
-        let fontSize = this.getIndicatorFontSize(height);
-        $(indicator).css('font-size', fontSize);
-    },
-
-    /**
      * Returns font size for indicators according to current
      * height of thumbnail
-     * @param {Number} - height - current height of thumbnail
+     * @param {Number} [thumbnailHeight] - current height of thumbnail
      * @returns {Number} - font size for current height
      */
-    getIndicatorFontSize(height) {
+    getIndicatorFontSize(thumbnailHeight) {
+        const height = typeof thumbnailHeight === 'undefined'
+            ? $('#localVideoContainer').height() : thumbnailHeight;
+
         const { SMALL, MEDIUM } = ThumbnailSizes;
         let fontSize = IndicatorFontSizes.NORMAL;
 

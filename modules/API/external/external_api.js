@@ -1,11 +1,16 @@
 import EventEmitter from 'events';
 
+import { urlObjectToString } from '../../../react/features/base/util';
 import {
     PostMessageTransportBackend,
     Transport
 } from '../../transport';
 
 const logger = require('jitsi-meet-logger').getLogger(__filename);
+
+const ALWAYS_ON_TOP_FILENAMES = [
+    'css/all.css', 'libs/alwaysontop.min.js'
+];
 
 /**
  * Maps the names of the commands expected by the API with the name of the
@@ -29,6 +34,8 @@ const commands = {
  * events expected by jitsi-meet
  */
 const events = {
+    'audio-availability-changed': 'audioAvailabilityChanged',
+    'audio-mute-status-changed': 'audioMuteStatusChanged',
     'display-name-change': 'displayNameChange',
     'incoming-message': 'incomingMessage',
     'outgoing-message': 'outgoingMessage',
@@ -36,7 +43,9 @@ const events = {
     'participant-left': 'participantLeft',
     'video-ready-to-close': 'readyToClose',
     'video-conference-joined': 'videoConferenceJoined',
-    'video-conference-left': 'videoConferenceLeft'
+    'video-conference-left': 'videoConferenceLeft',
+    'video-availability-changed': 'videoAvailabilityChanged',
+    'video-mute-status-changed': 'videoMuteStatusChanged'
 };
 
 /**
@@ -44,18 +53,6 @@ const events = {
  * @type {number}
  */
 let id = 0;
-
-/**
- * The minimum height for the Jitsi Meet frame
- * @type {number}
- */
-const MIN_HEIGHT = 300;
-
-/**
- * The minimum width for the Jitsi Meet frame
- * @type {number}
- */
-const MIN_WIDTH = 790;
 
 /**
  * Adds given number to the numberOfParticipants property of given APIInstance.
@@ -67,29 +64,7 @@ const MIN_WIDTH = 790;
  * @returns {void}
  */
 function changeParticipantNumber(APIInstance, number) {
-    APIInstance.numberOfParticipants += number;
-}
-
-/**
- * Generates array with URL params based on the passed config object that will
- * be used for the Jitsi Meet URL generation.
- *
- * @param {Object} config - The config object.
- * @returns {Array<string>} The array with URL param strings.
- */
-function configToURLParamsArray(config = {}) {
-    const params = [];
-
-    for (const key in config) { // eslint-disable-line guard-for-in
-        try {
-            params.push(
-                `${key}=${encodeURIComponent(JSON.stringify(config[key]))}`);
-        } catch (e) {
-            console.warn(`Error encoding ${key}: ${e}`);
-        }
-    }
-
-    return params;
+    APIInstance._numberOfParticipants += number;
 }
 
 /**
@@ -104,95 +79,153 @@ function configToURLParamsArray(config = {}) {
  * configuration options defined in interface_config.js to be overridden.
  * @param {string} [options.jwt] - The JWT token if needed by jitsi-meet for
  * authentication.
- * @param {boolean} [options.noSsl] - If the value is true https won't be used.
+ * @param {boolean} [options.noSSL] - If the value is true https won't be used.
  * @param {string} [options.roomName] - The name of the room to join.
  * @returns {string} The URL.
  */
 function generateURL(domain, options = {}) {
-    const {
-        configOverwrite,
-        interfaceConfigOverwrite,
-        jwt,
-        noSSL,
-        roomName
-    } = options;
-
-    let url = `${noSSL ? 'http' : 'https'}://${domain}/${roomName || ''}`;
-
-    if (jwt) {
-        url += `?jwt=${jwt}`;
-    }
-
-    url += `#jitsi_meet_external_api_id=${id}`;
-
-    const configURLParams = configToURLParamsArray(configOverwrite);
-
-    if (configURLParams.length) {
-        url += `&config.${configURLParams.join('&config.')}`;
-    }
-
-    const interfaceConfigURLParams
-        = configToURLParamsArray(interfaceConfigOverwrite);
-
-    if (interfaceConfigURLParams.length) {
-        url += `&interfaceConfig.${
-            interfaceConfigURLParams.join('&interfaceConfig.')}`;
-    }
-
-    return url;
+    return urlObjectToString({
+        ...options,
+        url:
+            `${options.noSSL ? 'http' : 'https'}://${domain
+                }/#jitsi_meet_external_api_id=${id}`
+    });
 }
+
+/**
+ * Parses the arguments passed to the constructor. If the old format is used
+ * the function translates the arguments to the new format.
+ *
+ * @param {Array} args - The arguments to be parsed.
+ * @returns {Object} JS object with properties.
+ */
+function parseArguments(args) {
+    if (!args.length) {
+        return {};
+    }
+
+    const firstArg = args[0];
+
+    switch (typeof firstArg) {
+    case 'string': // old arguments format
+    case undefined: // eslint-disable-line no-case-declarations
+    // not sure which format but we are trying to parse the old
+    // format because if the new format is used everything will be undefined
+    // anyway.
+        const [
+            roomName,
+            width,
+            height,
+            parentNode,
+            configOverwrite,
+            interfaceConfigOverwrite,
+            noSSL,
+            jwt
+        ] = args;
+
+        return {
+            roomName,
+            width,
+            height,
+            parentNode,
+            configOverwrite,
+            interfaceConfigOverwrite,
+            noSSL,
+            jwt
+        };
+    case 'object': // new arguments format
+        return args[0];
+    default:
+        throw new Error('Can\'t parse the arguments!');
+    }
+}
+
+/**
+ * Compute valid values for height and width. If a number is specified it's
+ * treated as pixel units. If the value is expressed in px, em, pt or
+ * percentage, it's used as is.
+ *
+ * @param {any} value - The value to be parsed.
+ * @returns {string|undefined} The parsed value that can be used for setting
+ * sizes through the style property. If invalid value is passed the method
+ * retuns undefined.
+ */
+function parseSizeParam(value) {
+    let parsedValue;
+
+    // This regex parses values of the form 100px, 100em, 100pt or 100%.
+    // Values like 100 or 100px are handled outside of the regex, and
+    // invalid values will be ignored and the minimum will be used.
+    const re = /([0-9]*\.?[0-9]+)(em|pt|px|%)$/;
+
+    if (typeof value === 'string' && String(value).match(re) !== null) {
+        parsedValue = value;
+    } else if (typeof value === 'number') {
+        parsedValue = `${value}px`;
+    }
+
+    return parsedValue;
+}
+
 
 /**
  * The IFrame API interface class.
  */
-class JitsiMeetExternalAPI extends EventEmitter {
+export default class JitsiMeetExternalAPI extends EventEmitter {
     /**
      * Constructs new API instance. Creates iframe and loads Jitsi Meet in it.
      *
      * @param {string} domain - The domain name of the server that hosts the
      * conference.
-     * @param {string} [roomName] - The name of the room to join.
-     * @param {number} [width] - Width of the iframe.
-     * @param {number} [height] - Height of the iframe.
-     * @param {DOMElement} [parentNode] - The node that will contain the
+     * @param {Object} [options] - Optional arguments.
+     * @param {string} [options.roomName] - The name of the room to join.
+     * @param {number|string} [options.width] - Width of the iframe. Check
+     * parseSizeParam for format details.
+     * @param {number|string} [options.height] - Height of the iframe. Check
+     * parseSizeParam for format details.
+     * @param {DOMElement} [options.parentNode] - The node that will contain the
      * iframe.
-     * @param {Object} [configOverwrite] - Object containing configuration
-     * options defined in config.js to be overridden.
-     * @param {Object} [interfaceConfigOverwrite] - Object containing
+     * @param {Object} [options.configOverwrite] - Object containing
+     * configuration options defined in config.js to be overridden.
+     * @param {Object} [options.interfaceConfigOverwrite] - Object containing
      * configuration options defined in interface_config.js to be overridden.
-     * @param {boolean} [noSSL] - If the value is true https won't be used.
-     * @param {string} [jwt] - The JWT token if needed by jitsi-meet for
+     * @param {boolean} [options.noSSL] - If the value is true https won't be
+     * used.
+     * @param {string} [options.jwt] - The JWT token if needed by jitsi-meet for
      * authentication.
      */
-    constructor(domain, // eslint-disable-line max-params
-        roomName = '',
-        width = MIN_WIDTH,
-        height = MIN_HEIGHT,
-        parentNode = document.body,
-        configOverwrite = {},
-        interfaceConfigOverwrite = {},
-        noSSL = false,
-        jwt = undefined) {
+    constructor(domain, ...args) {
         super();
-        this.parentNode = parentNode;
-        this.url = generateURL(domain, {
+        const {
+            roomName = '',
+            width = '100%',
+            height = '100%',
+            parentNode = document.body,
+            configOverwrite = {},
+            interfaceConfigOverwrite = {},
+            noSSL = false,
+            jwt = undefined
+        } = parseArguments(args);
+
+        this._parentNode = parentNode;
+        this._url = generateURL(domain, {
             configOverwrite,
             interfaceConfigOverwrite,
             jwt,
             noSSL,
             roomName
         });
-        this._createIFrame(Math.max(height, MIN_HEIGHT),
-            Math.max(width, MIN_WIDTH));
+        this._baseUrl = `${noSSL ? 'http' : 'https'}://${domain}/`;
+        this._createIFrame(height, width);
         this._transport = new Transport({
             backend: new PostMessageTransportBackend({
                 postisOptions: {
                     scope: `jitsi_meet_external_api_${id}`,
-                    window: this.frame.contentWindow
+                    window: this._frame.contentWindow
                 }
             })
         });
-        this.numberOfParticipants = 1;
+        this._numberOfParticipants = 1;
         this._setupListeners();
         id++;
     }
@@ -200,29 +233,58 @@ class JitsiMeetExternalAPI extends EventEmitter {
     /**
      * Creates the iframe element.
      *
-     * @param {number} height - The height of the iframe.
-     * @param {number} width - The with of the iframe.
+     * @param {number|string} height - The height of the iframe. Check
+     * parseSizeParam for format details.
+     * @param {number|string} width - The with of the iframe. Check
+     * parseSizeParam for format details.
      * @returns {void}
      *
      * @private
      */
     _createIFrame(height, width) {
-        this.iframeHolder
-            = this.parentNode.appendChild(document.createElement('div'));
-        this.iframeHolder.id = `jitsiConference${id}`;
-        this.iframeHolder.style.width = `${width}px`;
-        this.iframeHolder.style.height = `${height}px`;
+        const frameName = `jitsiConferenceFrame${id}`;
 
-        this.frameName = `jitsiConferenceFrame${id}`;
+        this._frame = document.createElement('iframe');
+        this._frame.src = this._url;
+        this._frame.name = frameName;
+        this._frame.id = frameName;
+        this._setSize(height, width);
+        this._frame.setAttribute('allowFullScreen', 'true');
+        this._frame.style.border = 0;
+        this._frame = this._parentNode.appendChild(this._frame);
+    }
 
-        this.frame = document.createElement('iframe');
-        this.frame.src = this.url;
-        this.frame.name = this.frameName;
-        this.frame.id = this.frameName;
-        this.frame.width = '100%';
-        this.frame.height = '100%';
-        this.frame.setAttribute('allowFullScreen', 'true');
-        this.frame = this.iframeHolder.appendChild(this.frame);
+    /**
+     * Returns arrays with the all resources for the always on top feature.
+     *
+     * @returns {Array<string>}
+     */
+    _getAlwaysOnTopResources() {
+        return ALWAYS_ON_TOP_FILENAMES.map(
+            filename => this._baseUrl + filename
+        );
+    }
+
+    /**
+     * Sets the size of the iframe element.
+     *
+     * @param {number|string} height - The height of the iframe.
+     * @param {number|string} width - The with of the iframe.
+     * @returns {void}
+     *
+     * @private
+     */
+    _setSize(height, width) {
+        const parsedHeight = parseSizeParam(height);
+        const parsedWidth = parseSizeParam(width);
+
+        if (parsedHeight !== undefined) {
+            this._frame.style.height = parsedHeight;
+        }
+
+        if (parsedWidth !== undefined) {
+            this._frame.style.width = parsedWidth;
+        }
     }
 
     /**
@@ -336,8 +398,8 @@ class JitsiMeetExternalAPI extends EventEmitter {
     dispose() {
         this._transport.dispose();
         this.removeAllListeners();
-        if (this.iframeHolder) {
-            this.iframeHolder.parentNode.removeChild(this.iframeHolder);
+        if (this._frame) {
+            this._frame.parentNode.removeChild(this._frame);
         }
     }
 
@@ -389,13 +451,70 @@ class JitsiMeetExternalAPI extends EventEmitter {
     }
 
     /**
+     * Check if the audio is available.
+     *
+     * @returns {Promise} - Resolves with true if the audio available, with
+     * false if not and rejects on failure.
+     */
+    isAudioAvailable() {
+        return this._transport.sendRequest({
+            name: 'is-audio-available'
+        });
+    }
+
+    /**
+     * Returns the audio mute status.
+     *
+     * @returns {Promise} - Resolves with the audio mute status and rejects on
+     * failure.
+     */
+    isAudioMuted() {
+        return this._transport.sendRequest({
+            name: 'is-audio-muted'
+        });
+    }
+
+    /**
+     * Returns the iframe that loads Jitsi Meet.
+     *
+     * @returns {HTMLElement} The iframe.
+     */
+    getIFrame() {
+        return this._frame;
+    }
+
+    /**
      * Returns the number of participants in the conference. The local
      * participant is included.
      *
      * @returns {int} The number of participants in the conference.
      */
     getNumberOfParticipants() {
-        return this.numberOfParticipants;
+        return this._numberOfParticipants;
+    }
+
+    /**
+     * Check if the video is available.
+     *
+     * @returns {Promise} - Resolves with true if the video available, with
+     * false if not and rejects on failure.
+     */
+    isVideoAvailable() {
+        return this._transport.sendRequest({
+            name: 'is-video-available'
+        });
+    }
+
+    /**
+     * Returns the audio mute status.
+     *
+     * @returns {Promise} - Resolves with the audio mute status and rejects on
+     * failure.
+     */
+    isVideoMuted() {
+        return this._transport.sendRequest({
+            name: 'is-video-muted'
+        });
     }
 
     /**
@@ -424,5 +543,3 @@ class JitsiMeetExternalAPI extends EventEmitter {
         eventList.forEach(event => this.removeEventListener(event));
     }
 }
-
-module.exports = JitsiMeetExternalAPI;

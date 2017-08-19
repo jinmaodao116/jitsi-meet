@@ -4,10 +4,12 @@ import { getLogger } from 'jitsi-meet-logger';
 
 import * as KeyCodes from '../keycode/keycode';
 import {
-    EVENT_TYPES,
+    EVENTS,
     PERMISSIONS_ACTIONS,
-    REMOTE_CONTROL_EVENT_NAME
+    REMOTE_CONTROL_MESSAGE_NAME
 } from '../../service/remotecontrol/Constants';
+import * as RemoteControlEvents
+    from '../../service/remotecontrol/RemoteControlEvents';
 import UIEvents from '../../service/UI/UIEvents';
 
 import RemoteControlParticipant from './RemoteControlParticipant';
@@ -87,6 +89,15 @@ export default class Controller extends RemoteControlParticipant {
     }
 
     /**
+     * Returns the current active participant's id.
+     *
+     * @returns {string|null} - The id of the current active participant.
+     */
+    get activeParticipant(): string | null {
+        return this._requestedParticipant || this._controlledParticipant;
+    }
+
+    /**
      * Requests permissions from the remote control receiver side.
      *
      * @param {string} userId - The user id of the participant that will be
@@ -100,7 +111,7 @@ export default class Controller extends RemoteControlParticipant {
         if (!this._enabled) {
             return Promise.reject(new Error('Remote control is disabled!'));
         }
-
+        this.emit(RemoteControlEvents.ACTIVE_CHANGED, true);
         this._area = eventCaptureArea;// $("#largeVideoWrapper")
         logger.log(`Requsting remote control permissions from: ${userId}`);
 
@@ -125,16 +136,21 @@ export default class Controller extends RemoteControlParticipant {
                     result = this._handleReply(participant, event);
                 } catch (e) {
                     clearRequest();
+                    this.emit(RemoteControlEvents.ACTIVE_CHANGED, false);
                     reject(e);
                 }
                 if (result !== null) {
                     clearRequest();
+                    if (result === false) {
+                        this.emit(RemoteControlEvents.ACTIVE_CHANGED, false);
+                    }
                     resolve(result);
                 }
             };
             onUserLeft = id => {
                 if (id === this._requestedParticipant) {
                     clearRequest();
+                    this.emit(RemoteControlEvents.ACTIVE_CHANGED, false);
                     resolve(null);
                 }
             };
@@ -145,8 +161,8 @@ export default class Controller extends RemoteControlParticipant {
             APP.conference.addConferenceListener(ConferenceEvents.USER_LEFT,
                 onUserLeft);
             this._requestedParticipant = userId;
-            this.sendRemoteControlEvent(userId, {
-                type: EVENT_TYPES.permissions,
+            this.sendRemoteControlEndpointMessage(userId, {
+                type: EVENTS.permissions,
                 action: PERMISSIONS_ACTIONS.request
             }, e => {
                 clearRequest();
@@ -167,8 +183,8 @@ export default class Controller extends RemoteControlParticipant {
         const userId = participant.getId();
 
         if (this._enabled
-                && event.name === REMOTE_CONTROL_EVENT_NAME
-                && event.type === EVENT_TYPES.permissions
+                && event.name === REMOTE_CONTROL_MESSAGE_NAME
+                && event.type === EVENTS.permissions
                 && userId === this._requestedParticipant) {
             if (event.action !== PERMISSIONS_ACTIONS.grant) {
                 this._area = undefined;
@@ -201,13 +217,13 @@ export default class Controller extends RemoteControlParticipant {
      * event.
      * @param {Object} event - EndpointMessage event from the data channels.
      * @property {string} type - The function process only events with
-     * name REMOTE_CONTROL_EVENT_NAME.
+     * name REMOTE_CONTROL_MESSAGE_NAME.
      * @returns {void}
      */
     _handleRemoteControlStoppedEvent(participant: Object, event: Object) {
         if (this._enabled
-                && event.name === REMOTE_CONTROL_EVENT_NAME
-                && event.type === EVENT_TYPES.stop
+                && event.name === REMOTE_CONTROL_MESSAGE_NAME
+                && event.type === EVENTS.stop
                 && participant.getId() === this._controlledParticipant) {
             this._stop();
         }
@@ -251,8 +267,8 @@ export default class Controller extends RemoteControlParticipant {
             // $FlowDisableNextLine: we are sure that this._area is not null.
             const position = this._area.position();
 
-            this.sendRemoteControlEvent(this._controlledParticipant, {
-                type: EVENT_TYPES.mousemove,
+            this.sendRemoteControlEndpointMessage(this._controlledParticipant, {
+                type: EVENTS.mousemove,
 
                 // $FlowDisableNextLine: we are sure that this._area is not null
                 x: (event.pageX - position.left) / this._area.width(),
@@ -264,30 +280,34 @@ export default class Controller extends RemoteControlParticipant {
 
         // $FlowDisableNextLine: we are sure that this._area is not null.
         this._area.mousedown(this._onMouseClickHandler.bind(this,
-            EVENT_TYPES.mousedown));
+            EVENTS.mousedown));
 
         // $FlowDisableNextLine: we are sure that this._area is not null.
         this._area.mouseup(this._onMouseClickHandler.bind(this,
-            EVENT_TYPES.mouseup));
+            EVENTS.mouseup));
 
         // $FlowDisableNextLine: we are sure that this._area is not null.
         this._area.dblclick(
-            this._onMouseClickHandler.bind(this, EVENT_TYPES.mousedblclick));
+            this._onMouseClickHandler.bind(this, EVENTS.mousedblclick));
 
         // $FlowDisableNextLine: we are sure that this._area is not null.
         this._area.contextmenu(() => false);
 
         // $FlowDisableNextLine: we are sure that this._area is not null.
         this._area[0].onmousewheel = event => {
-            this.sendRemoteControlEvent(this._controlledParticipant, {
-                type: EVENT_TYPES.mousescroll,
+            event.preventDefault();
+            event.stopPropagation();
+            this.sendRemoteControlEndpointMessage(this._controlledParticipant, {
+                type: EVENTS.mousescroll,
                 x: event.deltaX,
                 y: event.deltaY
             });
+
+            return false;
         };
         $(window).keydown(this._onKeyPessHandler.bind(this,
-            EVENT_TYPES.keydown));
-        $(window).keyup(this._onKeyPessHandler.bind(this, EVENT_TYPES.keyup));
+            EVENTS.keydown));
+        $(window).keyup(this._onKeyPessHandler.bind(this, EVENTS.keyup));
     }
 
     /**
@@ -309,10 +329,11 @@ export default class Controller extends RemoteControlParticipant {
             this._stopListener);
         APP.conference.removeConferenceListener(ConferenceEvents.USER_LEFT,
             this._userLeftListener);
-        this._controlledParticipant = null;
         this.pause();
+        this._controlledParticipant = null;
         this._area = undefined;
-        APP.UI.messageHandler.openMessageDialog(
+        this.emit(RemoteControlEvents.ACTIVE_CHANGED, false);
+        APP.UI.messageHandler.notify(
             'dialog.remoteControlTitle',
             'dialog.remoteControlStopMessage'
         );
@@ -330,8 +351,8 @@ export default class Controller extends RemoteControlParticipant {
         if (!this._controlledParticipant) {
             return;
         }
-        this.sendRemoteControlEvent(this._controlledParticipant, {
-            type: EVENT_TYPES.stop
+        this.sendRemoteControlEndpointMessage(this._controlledParticipant, {
+            type: EVENTS.stop
         });
         this._stop();
     }
@@ -383,7 +404,7 @@ export default class Controller extends RemoteControlParticipant {
      * @returns {void}
      */
     _onMouseClickHandler(type: string, event: Object) {
-        this.sendRemoteControlEvent(this._controlledParticipant, {
+        this.sendRemoteControlEndpointMessage(this._controlledParticipant, {
             type,
             button: event.which
         });
@@ -416,7 +437,7 @@ export default class Controller extends RemoteControlParticipant {
      * @returns {void}
      */
     _onKeyPessHandler(type: string, event: Object) {
-        this.sendRemoteControlEvent(this._controlledParticipant, {
+        this.sendRemoteControlEndpointMessage(this._controlledParticipant, {
             type,
             key: getKey(event),
             modifiers: getModifiers(event)

@@ -1,4 +1,4 @@
-/* global APP, JitsiMeetJS, $, config, interfaceConfig, toastr */
+/* global APP, JitsiMeetJS, $, config, interfaceConfig */
 
 const logger = require("jitsi-meet-logger").getLogger(__filename);
 
@@ -8,7 +8,9 @@ import Chat from "./side_pannels/chat/Chat";
 import SidePanels from "./side_pannels/SidePanels";
 import Avatar from "./avatar/Avatar";
 import SideContainerToggler from "./side_pannels/SideContainerToggler";
+import messageHandler from "./util/MessageHandler";
 import UIUtil from "./util/UIUtil";
+import { activateTooltips } from './util/Tooltip';
 import UIEvents from "../../service/UI/UIEvents";
 import EtherpadManager from './etherpad/Etherpad';
 import SharedVideoManager from './shared_video/SharedVideo';
@@ -19,61 +21,39 @@ import Filmstrip from "./videolayout/Filmstrip";
 import SettingsMenu from "./side_pannels/settings/SettingsMenu";
 import Profile from "./side_pannels/profile/Profile";
 import Settings from "./../settings/Settings";
-import RingOverlay from "./ring_overlay/RingOverlay";
-import UIErrors from './UIErrors';
 import { debounce } from "../util/helpers";
 
-
-import {
-    updateDeviceList
-} from '../../react/features/base/devices';
-import {
-    setAudioMuted,
-    setVideoMuted
-} from '../../react/features/base/media';
+import { updateDeviceList } from '../../react/features/base/devices';
 import {
     openDeviceSelectionDialog
 } from '../../react/features/device-selection';
+import { openDisplayNamePrompt } from '../../react/features/display-name';
 import {
     checkAutoEnableDesktopSharing,
     dockToolbox,
-    setAudioIconEnabled,
     setToolbarButton,
-    setVideoIconEnabled,
     showDialPadButton,
     showEtherpadButton,
     showSharedVideoButton,
     showDialOutButton,
     showToolbox
 } from '../../react/features/toolbox';
+import {
+    maybeShowNotificationWithDoNotDisplay,
+    setNotificationsEnabled
+} from '../../react/features/notifications';
 
 var EventEmitter = require("events");
-UI.messageHandler = require("./util/MessageHandler");
-var messageHandler = UI.messageHandler;
-var JitsiPopover = require("./util/JitsiPopover");
-import Feedback from "./feedback/Feedback";
+UI.messageHandler = messageHandler;
 import FollowMe from "../FollowMe";
 
 var eventEmitter = new EventEmitter();
 UI.eventEmitter = eventEmitter;
 
-/**
- * Whether an overlay is visible or not.
- *
- * FIXME: This is temporary solution. Don't use this variable!
- * Should be removed when all the code is move to react.
- *
- * @type {boolean}
- * @public
- */
-UI.overlayVisible = false;
-
 let etherpadManager;
 let sharedVideoManager;
 
 let followMeHandler;
-
-let deviceErrorDialog;
 
 const TrackErrors = JitsiMeetJS.errors.track;
 
@@ -200,8 +180,8 @@ UI.showLocalConnectionInterrupted = function (isInterrupted) {
 UI.setRaisedHandStatus = (participant, raisedHandStatus) => {
     VideoLayout.setRaisedHandStatus(participant.getId(), raisedHandStatus);
     if (raisedHandStatus) {
-        messageHandler.notify(participant.getDisplayName(), 'notify.somebody',
-                          'connected', 'notify.raisedHand');
+        messageHandler.participantNotification(participant.getDisplayName(),
+            'notify.somebody', 'connected', 'notify.raisedHand');
     }
 };
 
@@ -245,21 +225,21 @@ UI.initConference = function () {
 
     APP.store.dispatch(checkAutoEnableDesktopSharing());
 
-    if(!interfaceConfig.filmStripOnly) {
-        Feedback.init(eventEmitter);
-    }
-
     // FollowMe attempts to copy certain aspects of the moderator's UI into the
     // other participants' UI. Consequently, it needs (1) read and write access
     // to the UI (depending on the moderator role of the local participant) and
     // (2) APP.conference as means of communication between the participants.
     followMeHandler = new FollowMe(APP.conference, UI);
 
-    UIUtil.activateTooltips();
+    activateTooltips();
 };
 
 UI.mucJoined = function () {
     VideoLayout.mucJoined();
+
+    // Update local video now that a conference is joined a user ID should be
+    // set.
+    UI.changeDisplayName('localVideoContainer', APP.settings.getDisplayName());
 };
 
 /***
@@ -309,10 +289,6 @@ UI.start = function () {
     SideContainerToggler.init(eventEmitter);
     Filmstrip.init(eventEmitter);
 
-    // By default start with remote videos hidden and rely on other logic to
-    // make them visible.
-    UI.setRemoteThumbnailsVisibility(false);
-
     VideoLayout.init(eventEmitter);
     if (!interfaceConfig.filmStripOnly) {
         VideoLayout.initLargeVideo();
@@ -339,8 +315,7 @@ UI.start = function () {
         $("body").addClass("filmstrip-only");
         UI.showToolbar();
         Filmstrip.setFilmstripOnly();
-        messageHandler.enableNotifications(false);
-        JitsiPopover.enabled = false;
+        APP.store.dispatch(setNotificationsEnabled(false));
     }
 
     if (interfaceConfig.VERTICAL_FILMSTRIP) {
@@ -348,30 +323,6 @@ UI.start = function () {
     }
 
     document.title = interfaceConfig.APP_NAME;
-
-    if (!interfaceConfig.filmStripOnly) {
-        toastr.options = {
-            "closeButton": true,
-            "debug": false,
-            "positionClass": "notification-bottom-right",
-            "onclick": null,
-            "showDuration": "300",
-            "hideDuration": "1000",
-            "timeOut": "2000",
-            "extendedTimeOut": "1000",
-            "showEasing": "swing",
-            "hideEasing": "linear",
-            "showMethod": "fadeIn",
-            "hideMethod": "fadeOut",
-            "newestOnTop": false,
-            // this is the default toastr close button html, just adds tabIndex
-            "closeHtml": '<button type="button" tabIndex="-1">&times;</button>'
-        };
-    }
-
-    const { callee } = APP.store.getState()['features/jwt'];
-
-    callee && UI.showRingOverlay();
 };
 
 /**
@@ -492,11 +443,11 @@ UI.getSharedDocumentManager = () => etherpadManager;
 UI.addUser = function (user) {
     var id = user.getId();
     var displayName = user.getDisplayName();
-    UI.hideRingOverlay();
+
     if (UI.ContactList)
         UI.ContactList.addContact(id);
 
-    messageHandler.notify(
+    messageHandler.participantNotification(
         displayName,'notify.somebody', 'connected', 'notify.connected'
     );
 
@@ -524,7 +475,7 @@ UI.removeUser = function (id, displayName) {
     if (UI.ContactList)
         UI.ContactList.removeContact(id);
 
-    messageHandler.notify(
+    messageHandler.participantNotification(
         displayName,'notify.somebody', 'disconnected', 'notify.disconnected'
     );
 
@@ -560,8 +511,8 @@ UI.updateLocalRole = isModerator => {
 
     if (isModerator) {
         if (!interfaceConfig.DISABLE_FOCUS_INDICATOR)
-            messageHandler
-                .notify(null, "notify.me", 'connected', "notify.moderator");
+            messageHandler.participantNotification(
+                null, "notify.me", 'connected', "notify.moderator");
 
         Recording.checkAutoRecord();
     }
@@ -583,14 +534,14 @@ UI.updateUserRole = user => {
 
     var displayName = user.getDisplayName();
     if (displayName) {
-        messageHandler.notify(
+        messageHandler.participantNotification(
             displayName, 'notify.somebody',
             'connected', 'notify.grantedTo', {
                 to: UIUtil.escapeHtml(displayName)
             }
         );
     } else {
-        messageHandler.notify(
+        messageHandler.participantNotification(
             '', 'notify.somebody',
             'connected', 'notify.grantedToUnknown');
     }
@@ -604,7 +555,7 @@ UI.updateUserRole = user => {
  */
 UI.updateUserStatus = (user, status) => {
     let displayName = user.getDisplayName();
-    messageHandler.notify(
+    messageHandler.participantNotification(
         displayName, '', 'connected', "dialOut.statusMessage",
         {
             status: UIUtil.escapeHtml(status)
@@ -676,11 +627,6 @@ UI.getRemoteVideoType = function (jid) {
     return VideoLayout.getRemoteVideoType(jid);
 };
 
-UI.connectionIndicatorShowMore = function(id) {
-    VideoLayout.showMore(id);
-    return false;
-};
-
 // FIXME check if someone user this
 UI.showLoginPopup = function(callback) {
     logger.log('password is required');
@@ -722,10 +668,7 @@ UI.askForNickname = function () {
 UI.setAudioMuted = function (id, muted) {
     VideoLayout.onAudioMute(id, muted);
     if (APP.conference.isLocalId(id)) {
-        APP.store.dispatch(setAudioMuted(muted));
-        APP.store.dispatch(setToolbarButton('microphone', {
-            toggled: muted
-        }));
+        APP.conference.updateAudioIconEnabled();
     }
 };
 
@@ -735,10 +678,7 @@ UI.setAudioMuted = function (id, muted) {
 UI.setVideoMuted = function (id, muted) {
     VideoLayout.onVideoMute(id, muted);
     if (APP.conference.isLocalId(id)) {
-        APP.store.dispatch(setVideoMuted(muted));
-        APP.store.dispatch(setToolbarButton('camera', {
-            toggled: muted
-        }));
+        APP.conference.updateVideoIconEnabled();
     }
 };
 
@@ -880,13 +820,13 @@ UI.notifyMaxUsersLimitReached = function () {
  * Notify user that he was automatically muted when joned the conference.
  */
 UI.notifyInitiallyMuted = function () {
-    messageHandler.notify(
+    messageHandler.participantNotification(
         null,
         "notify.mutedTitle",
         "connected",
         "notify.muted",
         null,
-        { timeOut: 120000 });
+        120000);
 };
 
 /**
@@ -914,53 +854,7 @@ UI.participantConnectionStatusChanged = function (id) {
  * Prompt user for nickname.
  */
 UI.promptDisplayName = () => {
-    const labelKey = 'dialog.enterDisplayName';
-    const message = (
-        `<div class="form-control">
-            <label data-i18n="${labelKey}" class="form-control__label"></label>
-            <input name="displayName" type="text"
-               data-i18n="[placeholder]defaultNickname"
-               class="input-control" autofocus>
-         </div>`
-    );
-
-    // Don't use a translation string, because we're too early in the call and
-    // the translation may not be initialised.
-    const buttons = { Ok: true };
-
-    const dialog = messageHandler.openDialog(
-        'dialog.displayNameRequired',
-        message,
-        true,
-        buttons,
-        (e, v, m, f) => {
-            e.preventDefault();
-            if (v) {
-                const displayName = f.displayName;
-
-                if (displayName) {
-                    UI.inputDisplayNameHandler(displayName);
-                    dialog.close();
-                    return;
-                }
-            }
-        },
-        () => {
-            const form  = $.prompt.getPrompt();
-            const input = form.find("input[name='displayName']");
-            const button = form.find("button");
-
-            input.focus();
-            button.attr("disabled", "disabled");
-            input.keyup(() => {
-                if (input.val()) {
-                    button.removeAttr("disabled");
-                } else {
-                    button.attr("disabled", "disabled");
-                }
-            });
-        }
-    );
+    APP.store.dispatch(openDisplayNamePrompt());
 };
 
 /**
@@ -989,25 +883,6 @@ UI.hideStats = function () {
 };
 
 /**
- * Update local connection quality statistics.
- * @param {number} percent
- * @param {object} stats
- */
-UI.updateLocalStats = function (percent, stats) {
-    VideoLayout.updateLocalConnectionStats(percent, stats);
-};
-
-/**
- * Update connection quality statistics for remote user.
- * @param {string} id user id
- * @param {number} percent
- * @param {object} stats
- */
-UI.updateRemoteStats = function (id, percent, stats) {
-    VideoLayout.updateConnectionStats(id, percent, stats);
-};
-
-/**
  * Mark video as interrupted or not.
  * @param {boolean} interrupted if video is interrupted
  */
@@ -1033,43 +908,6 @@ UI.addMessage = function (from, displayName, message, stamp) {
 UI.updateDTMFSupport
     = isDTMFSupported => APP.store.dispatch(showDialPadButton(isDTMFSupported));
 
-/**
- * Show user feedback dialog if its required and enabled after pressing the
- * hangup button.
- * @returns {Promise} Resolved with value - false if the dialog is enabled and
- * resolved with true if the dialog is disabled or the feedback was already
- * submitted. Rejected if another dialog is already displayed. This values are
- * used to display or not display the thank you dialog from
- * conference.maybeRedirectToWelcomePage method.
- */
-UI.requestFeedbackOnHangup = function () {
-    if (Feedback.isVisible())
-        return Promise.reject(UIErrors.FEEDBACK_REQUEST_IN_PROGRESS);
-    // Feedback has been submitted already.
-    else if (Feedback.isEnabled() && Feedback.isSubmitted()) {
-        return Promise.resolve({
-            thankYouDialogVisible : true,
-            feedbackSubmitted: true
-        });
-    }
-    else
-        return new Promise(function (resolve) {
-            if (Feedback.isEnabled()) {
-                Feedback.openFeedbackWindow(
-                    (options) => {
-                        options.thankYouDialogVisible = false;
-                        resolve(options);
-                    });
-            } else {
-                // If the feedback functionality isn't enabled we show a thank
-                // you dialog. Signaling it (true), so the caller
-                // of requestFeedback can act on it
-                resolve(
-                    {thankYouDialogVisible : true, feedbackSubmitted: false});
-            }
-        });
-};
-
 UI.updateRecordingState = function (state) {
     Recording.updateRecordingState(state);
 };
@@ -1085,7 +923,7 @@ UI.notifyInternalError = function () {
 };
 
 UI.notifyFocusDisconnected = function (focus, retrySec) {
-    messageHandler.notify(
+    messageHandler.participantNotification(
         null, "notify.focus",
         'disconnected', "notify.focusFail",
         {component: focus, ms: retrySec}
@@ -1131,6 +969,8 @@ UI.onLocalRaiseHandChanged = function (isRaisedHand) {
  */
 UI.onAvailableDevicesChanged = function (devices) {
     APP.store.dispatch(updateDeviceList(devices));
+    APP.conference.updateAudioIconEnabled();
+    APP.conference.updateVideoIconEnabled();
 };
 
 /**
@@ -1174,15 +1014,34 @@ UI.showExtensionRequiredDialog = function (url) {
  * @param url {string} the url of the extension.
  */
 UI.showExtensionExternalInstallationDialog = function (url) {
+    let openedWindow = null;
+
     let submitFunction = function(e,v){
         if (v) {
             e.preventDefault();
-            eventEmitter.emit(UIEvents.OPEN_EXTENSION_STORE, url);
+            if (openedWindow === null || openedWindow.closed) {
+                openedWindow
+                    = window.open(
+                        url,
+                        "extension_store_window",
+                        "resizable,scrollbars=yes,status=1");
+            } else {
+                openedWindow.focus();
+            }
         }
     };
 
-    let closeFunction = function () {
-        eventEmitter.emit(UIEvents.EXTERNAL_INSTALLATION_CANCELED);
+    let closeFunction = function (e, v) {
+        if (openedWindow) {
+            // Ideally we would close the popup, but this does not seem to work
+            // on Chrome. Leaving it uncommented in case it could work
+            // in some version.
+            openedWindow.close();
+            openedWindow = null;
+        }
+        if (!v) {
+            eventEmitter.emit(UIEvents.EXTERNAL_INSTALLATION_CANCELED);
+        }
     };
 
     messageHandler.openTwoButtonDialog({
@@ -1195,115 +1054,104 @@ UI.showExtensionExternalInstallationDialog = function (url) {
     });
 };
 
+/**
+ * Shows a dialog which asks user to install the extension. This one is
+ * displayed after installation is triggered from the script, but fails because
+ * it must be initiated by user gesture.
+ * @param callback {function} function to be executed after user clicks
+ * the install button - it should make another attempt to install the extension.
+ */
+UI.showExtensionInlineInstallationDialog = function (callback) {
+    let submitFunction = function(e,v){
+        if (v) {
+            callback();
+        }
+    };
+
+    let closeFunction = function (e, v) {
+        if (!v) {
+            eventEmitter.emit(UIEvents.EXTERNAL_INSTALLATION_CANCELED);
+        }
+    };
+
+    messageHandler.openTwoButtonDialog({
+        titleKey: 'dialog.externalInstallationTitle',
+        msgKey: 'dialog.inlineInstallationMsg',
+        leftButtonKey: 'dialog.inlineInstallExtension',
+        submitFunction,
+        loadedFunction: $.noop,
+        closeFunction
+    });
+};
 
 /**
- * Shows dialog with combined information about camera and microphone errors.
- * @param {JitsiTrackError} micError
- * @param {JitsiTrackError} cameraError
+ * Shows a notifications about the passed in microphone error.
+ *
+ * @param {JitsiTrackError} micError - An error object related to using or
+ * acquiring an audio stream.
+ * @returns {void}
  */
-UI.showDeviceErrorDialog = function (micError, cameraError) {
-    let dontShowAgain = {
-        id: "doNotShowWarningAgain",
-        localStorageKey: "doNotShowErrorAgain",
-        textKey: "dialog.doNotShowWarningAgain"
-    };
-    let isMicJitsiTrackErrorAndHasName = micError && micError.name &&
-        micError instanceof JitsiMeetJS.errorTypes.JitsiTrackError;
-    let isCameraJitsiTrackErrorAndHasName = cameraError && cameraError.name &&
-        cameraError instanceof JitsiMeetJS.errorTypes.JitsiTrackError;
-    let showDoNotShowWarning = false;
-
-    if (micError && cameraError && isMicJitsiTrackErrorAndHasName &&
-        isCameraJitsiTrackErrorAndHasName) {
-        showDoNotShowWarning =  true;
-    } else if (micError && isMicJitsiTrackErrorAndHasName && !cameraError) {
-        showDoNotShowWarning =  true;
-    } else if (cameraError && isCameraJitsiTrackErrorAndHasName && !micError) {
-        showDoNotShowWarning =  true;
+UI.showMicErrorNotification = function (micError) {
+    if (!micError) {
+        return;
     }
 
-    if (micError) {
-        dontShowAgain.localStorageKey += "-mic-" + micError.name;
+    const { message, name } = micError;
+
+    const persistenceKey = `doNotShowErrorAgain-mic-${name}`;
+
+    const micJitsiTrackErrorMsg
+        = JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.microphone[name];
+    const micErrorMsg = micJitsiTrackErrorMsg
+        || JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.microphone[TrackErrors.GENERAL];
+    const additionalMicErrorMsg = micJitsiTrackErrorMsg ? null : message;
+
+    APP.store.dispatch(maybeShowNotificationWithDoNotDisplay(
+        persistenceKey,
+        {
+            additionalMessage: additionalMicErrorMsg,
+            messageKey: micErrorMsg,
+            showToggle: Boolean(micJitsiTrackErrorMsg),
+            subtitleKey: 'dialog.micErrorPresent',
+            titleKey: name === TrackErrors.PERMISSION_DENIED
+                ? 'deviceError.microphonePermission' : 'dialog.error',
+            toggleLabelKey: 'dialog.doNotShowWarningAgain'
+        }));
+};
+
+/**
+ * Shows a notifications about the passed in camera error.
+ *
+ * @param {JitsiTrackError} cameraError - An error object related to using or
+ * acquiring a video stream.
+ * @returns {void}
+ */
+UI.showCameraErrorNotification = function (cameraError) {
+    if (!cameraError) {
+        return;
     }
 
-    if (cameraError) {
-        dontShowAgain.localStorageKey += "-camera-" + cameraError.name;
-    }
+    const { message, name } = cameraError;
 
-    let cameraJitsiTrackErrorMsg = cameraError
-        ? JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.camera[cameraError.name]
-        : undefined;
-    let micJitsiTrackErrorMsg = micError
-        ? JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.microphone[micError.name]
-        : undefined;
-    let cameraErrorMsg = cameraError
-        ? cameraJitsiTrackErrorMsg ||
-            JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.camera[TrackErrors.GENERAL]
-        : "";
-    let micErrorMsg = micError
-        ? micJitsiTrackErrorMsg ||
-            JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.microphone[TrackErrors.GENERAL]
-        : "";
-    let additionalCameraErrorMsg = !cameraJitsiTrackErrorMsg && cameraError &&
-        cameraError.message
-            ? `<div>${cameraError.message}</div>`
-            : ``;
-    let additionalMicErrorMsg = !micJitsiTrackErrorMsg && micError &&
-        micError.message
-            ? `<div>${micError.message}</div>`
-            : ``;
-    let message = '';
+    const persistenceKey = `doNotShowErrorAgain-camera-${name}`;
 
-    if (micError) {
-        message = `
-            ${message}
-            <h3 data-i18n='dialog.micErrorPresent'></h3>
-            <h4 data-i18n='${micErrorMsg}'></h4>
-            ${additionalMicErrorMsg}`;
-    }
+    const cameraJitsiTrackErrorMsg =
+        JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.camera[name];
+    const cameraErrorMsg = cameraJitsiTrackErrorMsg
+        || JITSI_TRACK_ERROR_TO_MESSAGE_KEY_MAP.camera[TrackErrors.GENERAL];
+    const additionalCameraErrorMsg = cameraJitsiTrackErrorMsg ? null : message;
 
-    if (cameraError) {
-        message = `
-            ${message}
-            <h3 data-i18n='dialog.cameraErrorPresent'></h3>
-            <h4 data-i18n='${cameraErrorMsg}'></h4>
-            ${additionalCameraErrorMsg}`;
-    }
-
-    // To make sure we don't have multiple error dialogs open at the same time,
-    // we will just close the previous one if we are going to show a new one.
-    deviceErrorDialog && deviceErrorDialog.close();
-
-    deviceErrorDialog = messageHandler.openDialog(
-        getTitleKey(),
-        message,
-        false,
-        {Ok: true},
-        function () {},
-        null,
-        function () {
-            // Reset dialog reference to null to avoid memory leaks when
-            // user closed the dialog manually.
-            deviceErrorDialog = null;
-        },
-        showDoNotShowWarning ? dontShowAgain : undefined
-    );
-
-    function getTitleKey() {
-        let title = "dialog.error";
-
-        if (micError && micError.name === TrackErrors.PERMISSION_DENIED) {
-            if (!cameraError
-                    || cameraError.name === TrackErrors.PERMISSION_DENIED) {
-                title = "dialog.permissionDenied";
-            }
-        } else if (cameraError
-                && cameraError.name === TrackErrors.PERMISSION_DENIED) {
-            title = "dialog.permissionDenied";
-        }
-
-        return title;
-    }
+    APP.store.dispatch(maybeShowNotificationWithDoNotDisplay(
+        persistenceKey,
+        {
+            additionalMessage: additionalCameraErrorMsg,
+            messageKey: cameraErrorMsg,
+            showToggle: Boolean(cameraJitsiTrackErrorMsg),
+            subtitleKey: 'dialog.cameraErrorPresent',
+            titleKey: name === TrackErrors.PERMISSION_DENIED
+                ? 'deviceError.cameraPermission' : 'dialog.error',
+            toggleLabelKey: 'dialog.doNotShowWarningAgain'
+        }));
 };
 
 /**
@@ -1354,53 +1202,6 @@ UI.onSharedVideoStop = function (id, attributes) {
 };
 
 /**
- * Enables / disables camera toolbar button.
- *
- * @param {boolean} enabled indicates if the camera button should be enabled
- * or disabled
- */
-UI.setCameraButtonEnabled
-    = enabled => APP.store.dispatch(setVideoIconEnabled(enabled));
-
-/**
- * Enables / disables microphone toolbar button.
- *
- * @param {boolean} enabled indicates if the microphone button should be
- * enabled or disabled
- */
-UI.setMicrophoneButtonEnabled
-    = enabled => APP.store.dispatch(setAudioIconEnabled(enabled));
-
-UI.showRingOverlay = function () {
-    const { callee } = APP.store.getState()['features/jwt'];
-
-    callee && RingOverlay.show(callee, interfaceConfig.DISABLE_RINGING);
-
-    Filmstrip.toggleFilmstrip(false, false);
-};
-
-UI.hideRingOverlay
-    = () => RingOverlay.hide() && Filmstrip.toggleFilmstrip(true, false);
-
-/**
- * Indicates if any the "top" overlays are currently visible. The check includes
- * the call/ring overlay, the suspended overlay, the GUM permissions overlay,
- * and the page-reload overlay.
- *
- * @returns {*|boolean} {true} if an overlay is visible; {false}, otherwise
- */
-UI.isOverlayVisible = function () {
-    return this.isRingOverlayVisible() || this.overlayVisible;
-};
-
-/**
- * Indicates if the ring overlay is currently visible.
- *
- * @returns {*|boolean} {true} if the ring overlay is visible, {false} otherwise
- */
-UI.isRingOverlayVisible = () => RingOverlay.isVisible();
-
-/**
  * Handles user's features changes.
  */
 UI.onUserFeaturesChanged = user => VideoLayout.onUserFeaturesChanged(user);
@@ -1413,14 +1214,24 @@ UI.onUserFeaturesChanged = user => VideoLayout.onUserFeaturesChanged(user);
 UI.getRemoteVideosCount = () => VideoLayout.getRemoteVideosCount();
 
 /**
- * Makes remote thumbnail videos visible or not visible.
+ * Sets the remote control active status for a remote participant.
  *
- * @param {boolean} shouldHide - True if remote thumbnails should be hidden,
- * false f they should be visible.
+ * @param {string} participantID - The id of the remote participant.
+ * @param {boolean} isActive - The new remote control active status.
  * @returns {void}
  */
-UI.setRemoteThumbnailsVisibility
-    = shouldHide => Filmstrip.setRemoteVideoVisibility(shouldHide);
+UI.setRemoteControlActiveStatus = function(participantID, isActive) {
+    VideoLayout.setRemoteControlActiveStatus(participantID, isActive);
+};
+
+/**
+ * Sets the remote control active status for the local participant.
+ *
+ * @returns {void}
+ */
+UI.setLocalRemoteControlActiveChanged = function() {
+    VideoLayout.setLocalRemoteControlActiveChanged();
+};
 
 const UIListeners = new Map([
     [
@@ -1470,4 +1281,6 @@ const UIListeners = new Map([
     ]
 ]);
 
-module.exports = UI;
+// TODO: Export every function separately. For now there is no point of doing
+// this because we are importing everything.
+export default UI;

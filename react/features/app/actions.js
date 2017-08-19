@@ -2,9 +2,9 @@ import { setRoom } from '../base/conference';
 import { setLocationURL } from '../base/connection';
 import { setConfig } from '../base/config';
 import { loadConfig } from '../base/lib-jitsi-meet';
+import { parseURIString } from '../base/util';
 
 import { APP_WILL_MOUNT, APP_WILL_UNMOUNT } from './actionTypes';
-import { _getRouteToRender, _parseURIString } from './functions';
 
 declare var APP: Object;
 
@@ -19,9 +19,7 @@ declare var APP: Object;
  */
 export function appNavigate(uri: ?string) {
     return (dispatch: Dispatch<*>, getState: Function) =>
-        _appNavigateToOptionalLocation(
-            dispatch, getState,
-            _parseURIString(uri));
+        _appNavigateToOptionalLocation(dispatch, getState, parseURIString(uri));
 }
 
 /**
@@ -49,8 +47,8 @@ function _appNavigateToMandatoryLocation(
     const newHost = newLocation.host;
 
     if (oldHost === newHost) {
-        dispatchSetLocationURL();
-        dispatchSetRoomAndNavigate();
+        dispatchSetLocationURL()
+            .then(dispatchSetRoom);
     } else {
         // If the host has changed, we need to load the config of the new host
         // and set it, and only after that we can navigate to a different route.
@@ -58,7 +56,7 @@ function _appNavigateToMandatoryLocation(
             .then(
                 config => configLoaded(/* err */ undefined, config),
                 err => configLoaded(err, /* config */ undefined))
-            .then(dispatchSetRoomAndNavigate);
+            .then(dispatchSetRoom);
     }
 
     /**
@@ -82,8 +80,9 @@ function _appNavigateToMandatoryLocation(
             return;
         }
 
-        dispatchSetLocationURL();
-        dispatch(setConfig(config));
+        return (
+            dispatchSetLocationURL()
+                .then(() => dispatch(setConfig(config))));
     }
 
     /**
@@ -92,17 +91,7 @@ function _appNavigateToMandatoryLocation(
      * @returns {void}
      */
     function dispatchSetLocationURL() {
-        dispatch(
-            setLocationURL(
-                new URL(
-                    (newLocation.protocol || 'https:')
-
-                        // TODO userinfo
-
-                        + newLocation.host
-                        + (newLocation.pathname || '/')
-                        + newLocation.search
-                        + newLocation.hash)));
+        return dispatch(setLocationURL(new URL(newLocation.toString())));
     }
 
     /**
@@ -110,8 +99,8 @@ function _appNavigateToMandatoryLocation(
      *
      * @returns {void}
      */
-    function dispatchSetRoomAndNavigate() {
-        dispatch(_setRoomAndNavigate(newLocation.room));
+    function dispatchSetRoom() {
+        return dispatch(setRoom(newLocation.room));
     }
 }
 
@@ -133,7 +122,7 @@ function _appNavigateToOptionalLocation(
     // default.
     if (!location || !location.host) {
         const defaultLocation
-            = _parseURIString(getState()['features/app'].app._getDefaultURL());
+            = parseURIString(getState()['features/app'].app._getDefaultURL());
 
         if (location) {
             location.host = defaultLocation.host;
@@ -149,9 +138,7 @@ function _appNavigateToOptionalLocation(
         }
     }
 
-    if (!location.protocol) {
-        location.protocol = 'https:';
-    }
+    location.protocol || (location.protocol = 'https:');
 
     _appNavigateToMandatoryLocation(dispatch, getState, location);
 }
@@ -211,40 +198,11 @@ function _loadConfig(location: Object) {
 
     // The React Native app supports an app-specific scheme which is sure to not
     // be supported by fetch (or whatever loadConfig utilizes).
-    if (protocol !== 'http:' && protocol !== 'https:') {
-        protocol = 'https:';
-    }
+    protocol !== 'http:' && protocol !== 'https:' && (protocol = 'https:');
 
     // TDOO userinfo
 
-    return loadConfig(protocol + location.host + (location.contextRoot || '/'));
-}
-
-/**
- * Navigates to a route in accord with a specific redux state.
- *
- * @param {Object} state - The redux state which determines/identifies the route
- * to navigate to.
- * @private
- * @returns {void}
- */
-function _navigate(state) {
-    const app = state['features/app'].app;
-    const routeToRender = _getRouteToRender(state);
-
-    app._navigate(routeToRender);
-}
-
-/**
- * Sets room and navigates to new route if needed.
- *
- * @param {string} newRoom - New room name.
- * @private
- * @returns {Function}
- */
-function _setRoomAndNavigate(newRoom) {
-    return (dispatch, getState) => {
-        dispatch(setRoom(newRoom));
-        _navigate(getState());
-    };
+    return (
+        loadConfig(
+            `${protocol}//${location.host}${location.contextRoot || '/'}`));
 }

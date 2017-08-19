@@ -33,7 +33,6 @@
 /* Modules BEGIN */
 
 @import 'dial-out';
-@import 'toastr';
 @import 'base';
 @import 'utils';
 @import 'overlay/overlay';
@@ -44,13 +43,12 @@
 @import 'modals/dialog';
 @import 'modals/feedback/feedback';
 @import 'modals/speaker_stats/speaker_stats';
+@import 'modals/video-quality/video-quality';
 @import 'videolayout_default';
 @import 'notice';
 @import 'popup_menu';
 @import 'recording';
 @import 'login_menu';
-@import 'popover';
-@import 'jitsi_popover';
 @import 'contact_list';
 @import 'chat';
 @import 'ringing/ringing';
@@ -73,6 +71,7 @@
 @import 'policy';
 @import 'filmstrip';
 @import 'unsupported-browser/main';
+@import 'modals/invite/add-people';
 @import 'vertical_filmstrip_overrides';
 
 /* Modules END */

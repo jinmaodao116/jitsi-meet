@@ -67,8 +67,8 @@ export function connect() {
             APP.UI.initConference();
 
             APP.UI.addListener(
-                    UIEvents.LANG_CHANGED,
-                    language => APP.translation.setLanguage(language));
+                UIEvents.LANG_CHANGED,
+                language => APP.translation.setLanguage(language));
 
             APP.keyboardshortcut.init();
 
@@ -77,7 +77,6 @@ export function connect() {
             }
         })
             .catch(error => {
-                APP.UI.hideRingOverlay();
                 APP.API.notifyConferenceLeft(APP.conference.roomName);
                 logger.error(error);
 

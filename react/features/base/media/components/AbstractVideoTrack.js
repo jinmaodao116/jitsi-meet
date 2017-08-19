@@ -6,11 +6,24 @@ import { shouldRenderVideoTrack } from '../functions';
 import { Video } from './_';
 
 /**
- * Component that renders video element for a specified video track.
+ * Implements a React {@link Component} that renders video element for a
+ * specific video track.
  *
  * @abstract
  */
-export class AbstractVideoTrack extends Component {
+export default class AbstractVideoTrack extends Component {
+    /**
+     * Default values for AbstractVideoTrack component's properties.
+     *
+     * @static
+     */
+    static defaultProps = {
+        /**
+         * Dispatch an action when the video starts playing.
+         */
+        triggerOnPlayingUpdate: true
+    };
+
     /**
      * AbstractVideoTrack component's property types.
      *
@@ -18,7 +31,18 @@ export class AbstractVideoTrack extends Component {
      */
     static propTypes = {
         dispatch: React.PropTypes.func,
+
+        /**
+         * Whether or not the store should be updated about the playing status
+         * of the video. Defaults to true. One use case for setting this prop
+         * to false is using multiple locals streams from the same video source,
+         * such as when previewing video. In those cases, the store may have no
+         * need to be updated about the existence or state of the stream.
+         */
+        triggerOnPlayingUpdate: React.PropTypes.bool,
+
         videoTrack: React.PropTypes.object,
+
         waitForVideoStarted: React.PropTypes.bool,
 
         /**
@@ -116,7 +140,9 @@ export class AbstractVideoTrack extends Component {
     _onVideoPlaying() {
         const videoTrack = this.props.videoTrack;
 
-        if (videoTrack && !videoTrack.videoStarted) {
+        if (this.props.triggerOnPlayingUpdate
+            && videoTrack
+            && !videoTrack.videoStarted) {
             this.props.dispatch(trackVideoStarted(videoTrack.jitsiTrack));
         }
     }

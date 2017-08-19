@@ -1,5 +1,10 @@
-/* global APP, $, interfaceConfig */
+/* global APP, $, interfaceConfig, JitsiMeetJS  */
 const logger = require("jitsi-meet-logger").getLogger(__filename);
+
+import {
+    getPinnedParticipant,
+    pinParticipant
+} from '../../../react/features/base/participants';
 
 import Filmstrip from "./Filmstrip";
 import UIEvents from "../../../service/UI/UIEvents";
@@ -10,18 +15,15 @@ import LargeVideoManager  from "./LargeVideoManager";
 import {VIDEO_CONTAINER_TYPE} from "./VideoContainer";
 import LocalVideo from "./LocalVideo";
 
+const ParticipantConnectionStatus
+    = JitsiMeetJS.constants.participantConnectionStatus;
+
 var remoteVideos = {};
 var localVideoThumbnail = null;
 
 var currentDominantSpeaker = null;
 
 var eventEmitter = null;
-
-/**
- * Currently focused video jid
- * @type {String}
- */
-var pinnedId = null;
 
 /**
  * flipX state of the localVideo
@@ -56,7 +58,7 @@ function onContactClicked (id) {
             // let the bridge adjust its lastN set for myjid and store
             // the pinned user in the lastNPickupId variable to be
             // picked up later by the lastN changed event handler.
-            eventEmitter.emit(UIEvents.PINNED_ENDPOINT, remoteVideo, true);
+            this.pinParticipant(remoteVideo.id);
         }
     }
 }
@@ -192,9 +194,9 @@ var VideoLayout = {
 
         localVideoThumbnail.changeVideo(stream);
 
-        /* force update if we're currently being displayed */
+        /* Update if we're currently being displayed */
         if (this.isCurrentlyOnLarge(localId)) {
-            this.updateLargeVideo(localId, true);
+            this.updateLargeVideo(localId);
         }
     },
 
@@ -208,6 +210,11 @@ var VideoLayout = {
         if (largeVideo && !largeVideo.id) {
             this.updateLargeVideo(APP.conference.getMyUserId(), true);
         }
+
+        // FIXME: replace this call with a generic update call once SmallVideo
+        // only contains a ReactElement. Then remove this call once the
+        // Filmstrip is fully in React.
+        localVideoThumbnail.updateIndicators();
     },
 
     /**
@@ -263,10 +270,13 @@ var VideoLayout = {
      * otherwise elects new video, in this order.
      */
     updateAfterThumbRemoved (id) {
-        if (!this.isCurrentlyOnLarge(id)) {
+        // Always trigger an update if large video is empty.
+        if (!largeVideo
+            || (this.getLargeVideoID() && !this.isCurrentlyOnLarge(id))) {
             return;
         }
 
+        const pinnedId = this.getPinnedId();
         let newId;
 
         if (pinnedId)
@@ -326,13 +336,11 @@ var VideoLayout = {
 
         remoteVideo.addRemoteStreamElement(stream);
 
-        // if track is muted make sure we reflect that
-        if(stream.isMuted())
-        {
-            if(stream.getType() === "audio")
-                this.onAudioMute(stream.getParticipantId(), true);
-            else
-                this.onVideoMute(stream.getParticipantId(), true);
+        // Make sure track's muted state is reflected
+        if (stream.getType() === "audio") {
+            this.onAudioMute(stream.getParticipantId(), stream.isMuted());
+        } else {
+            this.onVideoMute(stream.getParticipantId(), stream.isMuted());
         }
     },
 
@@ -342,6 +350,30 @@ var VideoLayout = {
         // Remote stream may be removed after participant left the conference.
         if (remoteVideo) {
             remoteVideo.removeRemoteStreamElement(stream);
+        }
+        this.updateMutedForNoTracks(id, stream.getType());
+    },
+
+    /**
+     * FIXME get rid of this method once muted indicator are reactified (by
+     * making sure that user with no tracks is displayed as muted )
+     *
+     * If participant has no tracks will make the UI display muted status.
+     * @param {string} participantId
+     * @param {string} mediaType 'audio' or 'video'
+     */
+    updateMutedForNoTracks(participantId, mediaType) {
+        const participant = APP.conference.getParticipantById(participantId);
+
+        if (participant
+                && !participant.getTracksByMediaType(mediaType).length) {
+            if (mediaType === 'audio') {
+                APP.UI.setAudioMuted(participantId, true);
+            } else if (mediaType === 'video') {
+                APP.UI.setVideoMuted(participantId, true);
+            } else {
+                logger.error(`Unsupported media type: ${mediaType}`);
+            }
         }
     },
 
@@ -356,11 +388,25 @@ var VideoLayout = {
     },
 
     isPinned (id) {
-        return (pinnedId) ? (id === pinnedId) : false;
+        return id === this.getPinnedId();
     },
 
     getPinnedId () {
-        return pinnedId;
+        const { id } = getPinnedParticipant(APP.store.getState()) || {};
+
+        return id || null;
+    },
+
+    /**
+     * Updates the desired pinned participant and notifies web UI of the change.
+     *
+     * @param {string|null} id - The participant id of the participant to be
+     * pinned. Pass in null to unpin without pinning another participant.
+     * @returns {void}
+     */
+    pinParticipant(id) {
+        APP.store.dispatch(pinParticipant(id));
+        APP.UI.emitEvent(UIEvents.PINNED_ENDPOINT, id, Boolean(id));
     },
 
     /**
@@ -370,23 +416,20 @@ var VideoLayout = {
      */
     handleVideoThumbClicked (id) {
         var smallVideo = VideoLayout.getSmallVideo(id);
+        const pinnedId = this.getPinnedId();
+
         if(pinnedId) {
             var oldSmallVideo = VideoLayout.getSmallVideo(pinnedId);
             if (oldSmallVideo && !interfaceConfig.filmStripOnly) {
                 oldSmallVideo.focus(false);
-                // as no pinned event will be sent for local video
-                // and we will unpin old one, lets signal it
-                // otherwise we will just send the new pinned one
-                if (smallVideo.isLocal)
-                    eventEmitter.emit(
-                        UIEvents.PINNED_ENDPOINT, oldSmallVideo, false);
             }
         }
 
         // Unpin if currently pinned.
         if (pinnedId === id)
         {
-            pinnedId = null;
+            this.pinParticipant(null);
+
             // Enable the currently set dominant speaker.
             if (currentDominantSpeaker) {
                 if(smallVideo && smallVideo.hasVideo()) {
@@ -400,20 +443,15 @@ var VideoLayout = {
                 this.updateLargeVideo(this.electLastVisibleVideo());
             }
 
-            eventEmitter.emit(UIEvents.PINNED_ENDPOINT, smallVideo, false);
-
             return;
         }
 
-        // Lock new video
-        pinnedId = id;
-
         // Update focused/pinned interface.
         if (id) {
-            if (smallVideo && !interfaceConfig.filmStripOnly)
+            if (smallVideo && !interfaceConfig.filmStripOnly) {
                 smallVideo.focus(true);
-
-            eventEmitter.emit(UIEvents.PINNED_ENDPOINT, smallVideo, true);
+                this.pinParticipant(id);
+            }
         }
 
         this.updateLargeVideo(id);
@@ -435,6 +473,9 @@ var VideoLayout = {
             remoteVideo = new RemoteVideo(user, VideoLayout, eventEmitter);
         this._setRemoteControlProperties(user, remoteVideo);
         this.addRemoteVideoContainer(id, remoteVideo);
+
+        this.updateMutedForNoTracks(id, 'audio');
+        this.updateMutedForNoTracks(id, 'video');
 
         const remoteVideosCount = Object.keys(remoteVideos).length;
 
@@ -496,6 +537,8 @@ var VideoLayout = {
      * @returns {void}
      */
     _maybePlaceParticipantOnLargeVideo(resourceJid) {
+        const pinnedId = this.getPinnedId();
+
         if ((!pinnedId &&
             !currentDominantSpeaker &&
             this.isLargeContainerTypeVisible(VIDEO_CONTAINER_TYPE)) ||
@@ -557,8 +600,15 @@ var VideoLayout = {
      * is fine.
      */
     showLocalConnectionInterrupted (isInterrupted) {
-        localVideoThumbnail.connectionIndicator
-            .updateConnectionStatusIndicator(!isInterrupted);
+        // Currently local video thumbnail displays only "active" or
+        // "interrupted" despite the fact that ConnectionIndicator supports more
+        // states.
+        const status
+            = isInterrupted
+                ? ParticipantConnectionStatus.INTERRUPTED
+                : ParticipantConnectionStatus.ACTIVE;
+
+        localVideoThumbnail.updateConnectionStatus(status);
     },
 
     /**
@@ -592,9 +642,7 @@ var VideoLayout = {
                 return;
 
             remoteVideo.showAudioIndicator(isMuted);
-            if (APP.conference.isModerator) {
-                remoteVideo.updateRemoteVideoMenu(isMuted);
-            }
+            remoteVideo.updateRemoteVideoMenu(isMuted);
         }
     },
 
@@ -686,7 +734,7 @@ var VideoLayout = {
         // Update the large video if the video source is already available,
         // otherwise wait for the "videoactive.jingle" event.
         // FIXME: there is no "videoactive.jingle" event.
-        if (!interfaceConfig.filmStripOnly && !pinnedId
+        if (!interfaceConfig.filmStripOnly && !this.getPinnedId()
             && remoteVideo.hasVideoStarted()
             && !this.getCurrentlyOnLargeContainer().stayOnStage()) {
             this.updateLargeVideo(id);
@@ -755,67 +803,13 @@ var VideoLayout = {
     },
 
     /**
-     * Updates local stats
-     * @param percent
-     * @param object
-     */
-    updateLocalConnectionStats (percent, object) {
-        const { framerate, resolution } = object;
-
-        // FIXME overwrites 'lib-jitsi-meet' internal object
-        // Why library internal objects are passed as event's args ?
-        object.resolution = resolution[APP.conference.getMyUserId()];
-        object.framerate = framerate[APP.conference.getMyUserId()];
-        localVideoThumbnail.updateStatsIndicator(percent, object);
-
-        Object.keys(resolution).forEach(function (id) {
-            if (APP.conference.isLocalId(id)) {
-                return;
-            }
-
-            let resolutionValue = resolution[id];
-            let remoteVideo = remoteVideos[id];
-
-            if (resolutionValue && remoteVideo) {
-                remoteVideo.updateResolution(resolutionValue);
-            }
-        });
-
-        Object.keys(framerate).forEach(function (id) {
-            if (APP.conference.isLocalId(id)) {
-                return;
-            }
-
-            const framerateValue = framerate[id];
-            const remoteVideo = remoteVideos[id];
-
-            if (framerateValue && remoteVideo) {
-                remoteVideo.updateFramerate(framerateValue);
-            }
-        });
-    },
-
-    /**
-     * Updates remote stats.
-     * @param id the id associated with the stats
-     * @param percent the connection quality percent
-     * @param object the stats data
-     */
-    updateConnectionStats (id, percent, object) {
-        let remoteVideo = remoteVideos[id];
-        if (remoteVideo) {
-            remoteVideo.updateStatsIndicator(percent, object);
-        }
-    },
-
-    /**
      * Hides the connection indicator
      * @param id
      */
     hideConnectionIndicator (id) {
         let remoteVideo = remoteVideos[id];
         if (remoteVideo)
-            remoteVideo.hideConnectionIndicator();
+            remoteVideo.removeConnectionIndicator();
     },
 
     /**
@@ -825,16 +819,16 @@ var VideoLayout = {
         for (var video in remoteVideos) {
             let remoteVideo = remoteVideos[video];
             if (remoteVideo)
-                remoteVideo.hideIndicator();
+                remoteVideo.removeConnectionIndicator();
         }
-        localVideoThumbnail.hideIndicator();
+        localVideoThumbnail.removeConnectionIndicator();
     },
 
     removeParticipantContainer (id) {
         // Unlock large video
-        if (pinnedId === id) {
+        if (this.getPinnedId() === id) {
             logger.info("Focused video owner has left the conference");
-            pinnedId = null;
+            this.pinParticipant(null);
         }
 
         if (currentDominantSpeaker === id) {
@@ -878,19 +872,6 @@ var VideoLayout = {
 
         if (this.isCurrentlyOnLarge(id)) {
             this.updateLargeVideo(id, true);
-        }
-    },
-
-    showMore (id) {
-        if (id === 'local') {
-            localVideoThumbnail.connectionIndicator.showMore();
-        } else {
-            let remoteVideo = remoteVideos[id];
-            if (remoteVideo) {
-                remoteVideo.connectionIndicator.showMore();
-            } else {
-                logger.info("Error - no remote video for id: " + id);
-            }
         }
     },
 
@@ -982,7 +963,7 @@ var VideoLayout = {
      * video.
      */
     getCurrentlyOnLargeContainer () {
-        return largeVideo.getContainer(largeVideo.state);
+        return largeVideo.getCurrentContainer();
     },
 
     isCurrentlyOnLarge (id) {
@@ -1011,8 +992,26 @@ var VideoLayout = {
         if (!largeVideo) {
             return;
         }
-        let isOnLarge = this.isCurrentlyOnLarge(id);
-        let currentId = largeVideo.id;
+        const currentContainer = largeVideo.getCurrentContainer();
+        const currentContainerType = largeVideo.getCurrentContainerType();
+        const currentId = largeVideo.id;
+        const isOnLarge = this.isCurrentlyOnLarge(id);
+        const smallVideo = this.getSmallVideo(id);
+
+        if (isOnLarge && !forceUpdate
+                && LargeVideoManager.isVideoContainer(currentContainerType)
+                && smallVideo) {
+            const currentStreamId = currentContainer.getStreamID();
+            const newStreamId
+                = smallVideo.videoStream
+                    ? smallVideo.videoStream.getId() : null;
+
+            // FIXME it might be possible to get rid of 'forceUpdate' argument
+            if (currentStreamId !== newStreamId) {
+                logger.debug('Enforcing large video update for stream change');
+                forceUpdate = true;
+            }
+        }
 
         if (!isOnLarge || forceUpdate) {
             let videoType = this.getRemoteVideoType(id);
@@ -1021,7 +1020,6 @@ var VideoLayout = {
                 eventEmitter.emit(UIEvents.SELECTED_ENDPOINT, id);
             }
 
-            let smallVideo = this.getSmallVideo(id);
             let oldSmallVideo;
             if (currentId) {
                 oldSmallVideo = this.getSmallVideo(currentId);
@@ -1080,6 +1078,8 @@ var VideoLayout = {
         // (pinned remote video) use its video type,
         // if not then use default type - large video
         if (!show) {
+            const pinnedId = this.getPinnedId();
+
             if(pinnedId)
                 containerTypeToShow = this.getRemoteVideoType(pinnedId);
             else
@@ -1163,6 +1163,27 @@ var VideoLayout = {
      */
     getRemoteVideosCount() {
         return Object.keys(remoteVideos).length;
+    },
+    /**
+     * Sets the remote control active status for a remote participant.
+     *
+     * @param {string} participantID - The id of the remote participant.
+     * @param {boolean} isActive - The new remote control active status.
+     * @returns {void}
+     */
+    setRemoteControlActiveStatus(participantID, isActive) {
+        remoteVideos[participantID].setRemoteControlActiveStatus(isActive);
+    },
+
+    /**
+     * Sets the remote control active status for the local participant.
+     *
+     * @returns {void}
+     */
+    setLocalRemoteControlActiveChanged() {
+        Object.values(remoteVideos).forEach(
+            remoteVideo => remoteVideo.updateRemoteVideoMenu()
+        );
     }
 };
 

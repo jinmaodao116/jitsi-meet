@@ -1,11 +1,15 @@
 import {
     DOMINANT_SPEAKER_CHANGED,
+    KICK_PARTICIPANT,
+    MUTE_REMOTE_PARTICIPANT,
+    PARTICIPANT_DISPLAY_NAME_CHANGED,
     PARTICIPANT_ID_CHANGED,
     PARTICIPANT_JOINED,
     PARTICIPANT_LEFT,
     PARTICIPANT_UPDATED,
     PIN_PARTICIPANT
 } from './actionTypes';
+import { MAX_DISPLAY_NAME_LENGTH } from './constants';
 import { getLocalParticipant } from './functions';
 
 /**
@@ -25,6 +29,42 @@ export function dominantSpeakerChanged(id) {
         participant: {
             id
         }
+    };
+}
+
+/**
+ * Creates an action to signal the connection status of the local participant
+ * has changed.
+ *
+ * @param {string} connectionStatus - The current connection status of the local
+ * participant, as enumerated by the library's participantConnectionStatus
+ * constants.
+ * @returns {Function}
+ */
+export function localParticipantConnectionStatusChanged(connectionStatus) {
+    return (dispatch, getState) => {
+        const participant = getLocalParticipant(getState);
+
+        if (participant) {
+            return dispatch(participantConnectionStatusChanged(
+                participant.id, connectionStatus));
+        }
+    };
+}
+
+/**
+ * Create an action for removing a participant from the conference.
+ *
+ * @param {string} id - Participant's ID.
+ * @returns {{
+ *     type: KICK_PARTICIPANT,
+ *     id: string
+ * }}
+ */
+export function kickParticipant(id) {
+    return {
+        type: KICK_PARTICIPANT,
+        id
     };
 }
 
@@ -85,6 +125,22 @@ export function localParticipantRoleChanged(role) {
 }
 
 /**
+ * Create an action for muting another participant in the conference.
+ *
+ * @param {string} id - Participant's ID.
+ * @returns {{
+ *     type: MUTE_REMOTE_PARTICIPANT,
+ *     id: string
+ * }}
+ */
+export function muteRemoteParticipant(id) {
+    return {
+        type: MUTE_REMOTE_PARTICIPANT,
+        id
+    };
+}
+
+/**
  * Action to update a participant's connection status.
  *
  * @param {string} id - Participant's ID.
@@ -124,6 +180,29 @@ export function localParticipantLeft() {
 }
 
 /**
+ * Action to signal that a participant's display name has changed.
+ *
+ * @param {string} id - The id of the participant being changed.
+ * @param {string} displayName - The new display name.
+ * @returns {{
+ *     type: PARTICIPANT_DISPLAY_NAME_CHANGED,
+ *     id: string,
+ *     name: string
+ * }}
+ */
+export function participantDisplayNameChanged(id, displayName = '') {
+    // FIXME Do not use this action over participantUpdated. This action exists
+    // as a a bridge for local name updates. Once other components responsible
+    // for updating the local user's display name are in react/redux, this
+    // action should be replaceable with the participantUpdated action.
+    return {
+        type: PARTICIPANT_DISPLAY_NAME_CHANGED,
+        id,
+        name: displayName.substr(0, MAX_DISPLAY_NAME_LENGTH)
+    };
+}
+
+/**
  * Action to signal that a participant has joined.
  *
  * @param {Participant} participant - Information about participant.
@@ -157,6 +236,26 @@ export function participantLeft(id) {
             id
         }
     };
+}
+
+/**
+ * Action to signal that a participant's presence status has changed.
+ *
+ * @param {string} id - Participant's ID.
+ * @param {string} presence - Participant's new presence status.
+ * @returns {{
+ *     type: PARTICIPANT_UPDATED,
+ *     participant: {
+ *         id: string,
+ *         presence: string
+ *     }
+ * }}
+ */
+export function participantPresenceChanged(id, presence) {
+    return participantUpdated({
+        id,
+        presence
+    });
 }
 
 /**

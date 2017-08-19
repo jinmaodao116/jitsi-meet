@@ -3,12 +3,13 @@
 import type { Dispatch } from 'redux';
 
 import { appNavigate } from '../app';
-import { toggleAudioMuted, toggleVideoMuted } from '../base/media';
+import { MEDIA_TYPE } from '../base/media';
+import { isLocalTrackMuted } from '../base/tracks';
 
 /**
- * Maps (redux) actions to React component props.
+ * Maps redux actions to {@link Toolbox} (React {@code Component}) props.
  *
- * @param {Function} dispatch - Redux action dispatcher.
+ * @param {Function} dispatch - The redux {@code dispatch} function.
  * @returns {{
  *     _onHangup: Function,
  *     _onToggleAudio: Function,
@@ -18,6 +19,11 @@ import { toggleAudioMuted, toggleVideoMuted } from '../base/media';
  */
 export function abstractMapDispatchToProps(dispatch: Dispatch<*>): Object {
     return {
+        // Inject {@code dispatch} into the React Component's props in case it
+        // needs to dispatch an action in the redux store without
+        // {@code mapDispatchToProps}.
+        dispatch,
+
         /**
          * Dispatches action to leave the current conference.
          *
@@ -31,38 +37,17 @@ export function abstractMapDispatchToProps(dispatch: Dispatch<*>): Object {
             // business to know that anyway. The undefined value is our
             // expression of (1) the lack of knowledge & (2) the desire to no
             // longer have a valid room name to join.
-            return dispatch(appNavigate(undefined));
-        },
-
-        /**
-         * Dispatches an action to toggle the mute state of the
-         * audio/microphone.
-         *
-         * @private
-         * @returns {Object} - Dispatched action.
-         * @type {Function}
-         */
-        _onToggleAudio() {
-            return dispatch(toggleAudioMuted());
-        },
-
-        /**
-         * Dispatches an action to toggle the mute state of the video/camera.
-         *
-         * @private
-         * @returns {Object} - Dispatched action.
-         * @type {Function}
-         */
-        _onToggleVideo() {
-            return dispatch(toggleVideoMuted());
+            dispatch(appNavigate(undefined));
         }
     };
 }
 
 /**
- * Maps parts of media state to component props.
+ * Maps parts of the redux state to {@link Toolbox} (React {@code Component})
+ * props.
  *
- * @param {Object} state - Redux state.
+ * @param {Object} state - The redux state of which parts are to be mapped to
+ * {@code Toolbox} props.
  * @protected
  * @returns {{
  *     _audioMuted: boolean,
@@ -71,17 +56,17 @@ export function abstractMapDispatchToProps(dispatch: Dispatch<*>): Object {
  * }}
  */
 export function abstractMapStateToProps(state: Object): Object {
-    const media = state['features/base/media'];
+    const tracks = state['features/base/tracks'];
     const { visible } = state['features/toolbox'];
 
     return {
         /**
-         * Flag showing that audio is muted.
+         * Flag showing whether audio is muted.
          *
          * @protected
          * @type {boolean}
          */
-        _audioMuted: media.audio.muted,
+        _audioMuted: isLocalTrackMuted(tracks, MEDIA_TYPE.AUDIO),
 
         /**
          * Flag showing whether video is muted.
@@ -89,7 +74,7 @@ export function abstractMapStateToProps(state: Object): Object {
          * @protected
          * @type {boolean}
          */
-        _videoMuted: media.video.muted,
+        _videoMuted: isLocalTrackMuted(tracks, MEDIA_TYPE.VIDEO),
 
         /**
          * Flag showing whether toolbox is visible.
@@ -102,7 +87,7 @@ export function abstractMapStateToProps(state: Object): Object {
 }
 
 /**
- * Returns the button object corresponding to the given buttonName.
+ * Returns the button object corresponding to a specific {@code buttonName}.
  *
  * @param {string} buttonName - The name of the button.
  * @param {Object} state - The current state.

@@ -4,7 +4,7 @@ import {
     UPDATE_DIAL_IN_NUMBERS_FAILED,
     UPDATE_DIAL_IN_NUMBERS_SUCCESS
 } from './actionTypes';
-import { InviteDialog } from './components';
+import { AddPeopleDialog, InviteDialog } from './components';
 
 declare var $: Function;
 declare var APP: Object;
@@ -16,6 +16,15 @@ declare var APP: Object;
  */
 export function openInviteDialog() {
     return openDialog(InviteDialog);
+}
+
+/**
+ * Opens the Add People Dialog.
+ *
+ * @returns {Function}
+ */
+export function openAddPeopleDialog() {
+    return openDialog(AddPeopleDialog);
 }
 
 /**
@@ -31,11 +40,7 @@ export function updateDialInNumbers() {
         const mucURL = hosts && hosts.muc;
 
         if (!dialInConfCodeUrl || !dialInNumbersUrl || !mucURL) {
-            dispatch({
-                type: UPDATE_DIAL_IN_NUMBERS_FAILED,
-                error: 'URLs for fetching dial in numbers not properly defined'
-            });
-
+            // URLs for fetching dial in numbers not defined
             return;
         }
 

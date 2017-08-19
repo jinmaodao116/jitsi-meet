@@ -55,11 +55,6 @@ function getNewAudioInputDevice(newDevices, localAudio) {
             availableAudioInputDevices[0].label !== '') {
             return availableAudioInputDevices[0].deviceId;
         }
-        // Otherwise we assume that we don't have any audio input devices
-        // to use and that's why disable microphone button on UI.
-        else {
-            APP.UI.setMicrophoneButtonEnabled(false);
-        }
     } else {
         // And here we handle case when we already have some device working,
         // but we plug-in a "preferred" (previously selected in settings, stored
@@ -96,11 +91,6 @@ function getNewVideoInputDevice(newDevices, localVideo) {
         if (availableVideoInputDevices.length &&
             availableVideoInputDevices[0].label !== '') {
             return availableVideoInputDevices[0].deviceId;
-        }
-        // Otherwise we assume that we don't have any video input devices
-        // to use and that's why disable microphone button on UI.
-        else {
-            APP.UI.setCameraButtonEnabled(false);
         }
     } else {
         // And here we handle case when we already have some device working,
@@ -202,9 +192,12 @@ export default {
                         createVideoTrack(false).then(([stream]) => stream)
                     ]))
                     .then(tracks => {
-                        if (audioTrackError || videoTrackError) {
-                            APP.UI.showDeviceErrorDialog(
-                                audioTrackError, videoTrackError);
+                        if (audioTrackError) {
+                            APP.UI.showMicErrorNotification(audioTrackError);
+                        }
+
+                        if (videoTrackError) {
+                            APP.UI.showCameraErrorNotification(videoTrackError);
                         }
 
                         return tracks.filter(t => typeof t !== 'undefined');
@@ -225,7 +218,7 @@ export default {
                 })
                 .catch(err => {
                     audioTrackError = err;
-                    showError && APP.UI.showDeviceErrorDialog(err, null);
+                    showError && APP.UI.showMicErrorNotification(err);
                     return [];
                 });
         }
@@ -238,7 +231,7 @@ export default {
                 })
                 .catch(err => {
                     videoTrackError = err;
-                    showError && APP.UI.showDeviceErrorDialog(null, err);
+                    showError && APP.UI.showCameraErrorNotification(err);
                     return [];
                 });
         }

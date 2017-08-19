@@ -1,14 +1,12 @@
-/* global $, APP, toastr */
+/* global $, APP */
 const logger = require("jitsi-meet-logger").getLogger(__filename);
 
-import UIUtil from './UIUtil';
 import jitsiLocalStorage from '../../util/JitsiLocalStorage';
 
-/**
- * Flag for enable/disable of the notifications.
- * @type {boolean}
- */
-let notificationsEnabled = true;
+import {
+    Notification,
+    showNotification
+} from '../../../react/features/notifications';
 
 /**
  * Flag for enabling/disabling popups.
@@ -439,7 +437,7 @@ var messageHandler = {
     },
 
     /**
-     * Displays a notification.
+     * Displays a notification about participant action.
      * @param displayName the display name of the participant that is
      * associated with the notification.
      * @param displayNameKey the key from the language file for the display
@@ -448,46 +446,36 @@ var messageHandler = {
      * @param messageKey the key from the language file for the text of the
      * message.
      * @param messageArguments object with the arguments for the message.
-     * @param options passed to toastr (e.g. timeOut)
+     * @param optional configurations for the notification (e.g. timeout)
      */
-    notify: function(displayName, displayNameKey, cls, messageKey,
-                     messageArguments, options) {
-
-        // If we're in ringing state we skip all toaster notifications.
-        if(!notificationsEnabled || APP.UI.isOverlayVisible())
-            return;
-
-        var displayNameSpan = '<span class="nickname" ';
-        if (displayName) {
-            displayNameSpan += ">" + UIUtil.escapeHtml(displayName);
-        } else {
-            displayNameSpan += "data-i18n='" + displayNameKey + "'>";
-        }
-        displayNameSpan += "</span>";
-        let element = toastr.info(
-            displayNameSpan + '<br>' +
-            '<span class=' + cls + ' data-i18n="' + messageKey + '"' +
-                (messageArguments?
-                    " data-i18n-options='"
-                        + JSON.stringify(messageArguments) + "'"
-                    : "") + "></span>", null, options);
-        APP.translation.translateElement(element);
-        return element;
+    participantNotification: function(displayName, displayNameKey, cls,
+                    messageKey, messageArguments, timeout = 2500) {
+        APP.store.dispatch(
+            showNotification(
+                Notification,
+                {
+                    defaultTitleKey: displayNameKey,
+                    descriptionArguments: messageArguments,
+                    descriptionKey: messageKey,
+                    title: displayName
+                },
+                timeout));
     },
 
     /**
-     * Removes the toaster.
-     * @param toasterElement
+     * Displays a notification.
+     *
+     * @param {string} titleKey - The key from the language file for the title
+     * of the notification.
+     * @param {string} messageKey - The key from the language file for the text
+     * of the message.
+     * @param {Object} messageArguments - The arguments for the message
+     * translation.
+     * @returns {void}
      */
-    remove: function(toasterElement) {
-        toasterElement.remove();
-    },
-
-    /**
-     * Enables / disables notifications.
-     */
-    enableNotifications: function (enable) {
-        notificationsEnabled = enable;
+    notify: function(titleKey, messageKey, messageArguments) {
+        this.participantNotification(
+            null, titleKey, null, messageKey, messageArguments);
     },
 
     enablePopups: function (enable) {
@@ -504,4 +492,4 @@ var messageHandler = {
     }
 };
 
-module.exports = messageHandler;
+export default messageHandler;

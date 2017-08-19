@@ -1,12 +1,11 @@
 /* @flow */
 
-import { compose } from 'redux';
-
 import Recording from '../../../modules/UI/recording/Recording';
 import SideContainerToggler
     from '../../../modules/UI/side_pannels/SideContainerToggler';
+
+import { removeTooltip } from '../../../modules/UI/util/Tooltip';
 import UIEvents from '../../../service/UI/UIEvents';
-import UIUtil from '../../../modules/UI/util/UIUtil';
 
 import {
     changeLocalRaiseHand,
@@ -19,9 +18,11 @@ import {
     toggleFullScreen,
     toggleToolbarButton
 } from './actions.native';
-
 import { SET_DEFAULT_TOOLBOX_BUTTONS } from './actionTypes';
-import { getDefaultToolboxButtons } from './functions';
+import {
+    getDefaultToolboxButtons,
+    isButtonEnabled
+} from './functions';
 
 declare var $: Function;
 declare var APP: Object;
@@ -40,8 +41,7 @@ export function checkAutoEnableDesktopSharing(): Function {
     return () => {
         // XXX Should use dispatcher to toggle screensharing but screensharing
         // hasn't been React-ified yet.
-
-        if (UIUtil.isButtonEnabled('desktop')
+        if (isButtonEnabled('desktop')
                 && config.autoEnableDesktopSharing) {
             APP.UI.eventEmitter.emit(UIEvents.TOGGLE_SCREENSHARING);
         }
@@ -60,8 +60,7 @@ export function dockToolbox(dock: boolean): Function {
             return;
         }
 
-        const state = getState();
-        const { timeoutMS, visible } = state['features/toolbox'];
+        const { timeoutMS, visible } = getState()['features/toolbox'];
 
         if (dock) {
             // First make sure the toolbox is shown.
@@ -89,10 +88,10 @@ export function dockToolbox(dock: boolean): Function {
  * @private
  */
 function _getButtonHandlers(dispatch, getState) {
-    const { isGuest } = getState()['features/jwt'];
-
-    const localRaiseHandHandler = compose(dispatch, changeLocalRaiseHand);
-    const toggleFullScreenHandler = compose(dispatch, toggleFullScreen);
+    const localRaiseHandHandler
+        = (...args) => dispatch(changeLocalRaiseHand(...args));
+    const toggleFullScreenHandler
+        = (...args) => dispatch(toggleFullScreen(...args));
 
     return {
         /**
@@ -127,8 +126,8 @@ function _getButtonHandlers(dispatch, getState) {
          */
         profile: {
             onMount: () =>
-            isGuest
-            || dispatch(setProfileButtonUnclickable(true))
+                getState()['features/jwt']
+                    || dispatch(setProfileButtonUnclickable(true))
         },
 
         /**
@@ -154,8 +153,7 @@ function _getButtonHandlers(dispatch, getState) {
          */
         recording: {
             onMount: () =>
-            config.enableRecording
-            && dispatch(showRecordingButton())
+                config.enableRecording && dispatch(showRecordingButton())
         }
     };
 }
@@ -184,7 +182,7 @@ export function hideToolbox(force: boolean = false): Function {
 
         if (!force
                 && (hovered
-                    || APP.UI.isRingOverlayVisible()
+                    || state['features/jwt'].callOverlayVisible
                     || SideContainerToggler.isVisible())) {
             dispatch(
                 setToolboxTimeout(
@@ -229,7 +227,7 @@ export function setProfileButtonUnclickable(unclickable: boolean): Function {
             unclickable
         }));
 
-        UIUtil.removeTooltip(document.getElementById('toolbar_button_profile'));
+        removeTooltip(document.getElementById('toolbar_button_profile'));
     };
 }
 
@@ -241,13 +239,22 @@ export function setProfileButtonUnclickable(unclickable: boolean): Function {
 export function showDesktopSharingButton(): Function {
     return (dispatch: Dispatch<*>) => {
         const buttonName = 'desktop';
+        const disabledTooltipText
+            = APP.conference.desktopSharingDisabledTooltip;
+        const showTooltip
+            = disabledTooltipText
+                && APP.conference.isDesktopSharingDisabledByConfig;
         const visible
-            = APP.conference.isDesktopSharingEnabled
-                && UIUtil.isButtonEnabled(buttonName);
+            = isButtonEnabled(buttonName)
+                && (APP.conference.isDesktopSharingEnabled || showTooltip);
 
-        dispatch(setToolbarButton(buttonName, {
-            hidden: !visible
-        }));
+        const newState = {
+            enabled: APP.conference.isDesktopSharingEnabled,
+            hidden: !visible,
+            tooltipText: showTooltip ? disabledTooltipText : undefined
+        };
+
+        dispatch(setToolbarButton(buttonName, newState));
     };
 }
 
@@ -261,7 +268,7 @@ export function showDialPadButton(show: boolean): Function {
     return (dispatch: Dispatch<*>) => {
         const buttonName = 'dialpad';
 
-        if (show && UIUtil.isButtonEnabled(buttonName)) {
+        if (show && isButtonEnabled(buttonName)) {
             dispatch(setToolbarButton(buttonName, {
                 hidden: false
             }));
@@ -293,7 +300,7 @@ export function showSharedVideoButton(): Function {
     return (dispatch: Dispatch<*>) => {
         const buttonName = 'sharedvideo';
 
-        if (UIUtil.isButtonEnabled(buttonName)
+        if (isButtonEnabled(buttonName)
                 && !config.disableThirdPartyRequests) {
             dispatch(setToolbarButton(buttonName, {
                 hidden: false
@@ -315,7 +322,7 @@ export function showDialOutButton(show: boolean): Function {
 
         if (show
                 && APP.conference.sipGatewayEnabled()
-                && UIUtil.isButtonEnabled(buttonName)
+                && isButtonEnabled(buttonName)
                 && (!config.enableUserRolesBasedOnToken
                     || !getState()['features/jwt'].isGuest)) {
             dispatch(setToolbarButton(buttonName, {
@@ -366,14 +373,12 @@ export function showToolbox(timeout: number = 0): Object {
  */
 export function toggleSideToolbarContainer(containerId: string): Function {
     return (dispatch: Dispatch, getState: Function) => {
-        const state = getState();
-        const { secondaryToolbarButtons } = state['features/toolbox'];
+        const { secondaryToolbarButtons } = getState()['features/toolbox'];
 
         for (const key of secondaryToolbarButtons.keys()) {
-            const isButtonEnabled = UIUtil.isButtonEnabled(key);
             const button = secondaryToolbarButtons.get(key);
 
-            if (isButtonEnabled
+            if (isButtonEnabled(key)
                     && button.sideContainerId
                     && button.sideContainerId === containerId) {
                 dispatch(toggleToolbarButton(key));

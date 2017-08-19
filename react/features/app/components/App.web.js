@@ -1,7 +1,7 @@
-import { AbstractApp } from './AbstractApp';
-import { getLocationContextRoot } from '../functions';
-
+import { getLocationContextRoot } from '../../base/util';
 import '../../room-lock';
+
+import { AbstractApp } from './AbstractApp';
 
 /**
  * Root application component.
@@ -14,7 +14,7 @@ export class App extends AbstractApp {
      *
      * @static
      */
-    static propTypes = AbstractApp.propTypes
+    static propTypes = AbstractApp.propTypes;
 
     /**
      * Initializes a new App instance.
@@ -65,32 +65,43 @@ export class App extends AbstractApp {
      * @returns {void}
      */
     _navigate(route) {
-        let path = route.path;
-        const store = this._getStore();
+        let path;
 
-        // The syntax :room bellow is defined by react-router. It "matches a URL
-        // segment up to the next /, ?, or #. The matched string is called a
-        // param."
-        path
-            = path.replace(
-                /:room/g,
-                store.getState()['features/base/conference'].room);
-        path = this._routePath2WindowLocationPathname(path);
+        if (route) {
+            path = route.path;
+
+            const store = this._getStore();
+
+            // The syntax :room bellow is defined by react-router. It "matches a
+            // URL segment up to the next /, ?, or #. The matched string is
+            // called a param."
+            path
+                = path.replace(
+                    /:room/g,
+                    store.getState()['features/base/conference'].room);
+            path = this._routePath2WindowLocationPathname(path);
+        }
 
         // Navigate to the specified Route.
         const windowLocation = this.getWindowLocation();
+        let promise;
 
-        if (windowLocation.pathname === path) {
+        if (!route || windowLocation.pathname === path) {
             // The browser is at the specified path already and what remains is
             // to make this App instance aware of the route to be rendered at
             // the current location.
-            super._navigate(route);
+
+            // XXX Refer to the super's _navigate for an explanation why a
+            // Promise is returned.
+            promise = super._navigate(route);
         } else {
             // The browser must go to the specified location. Once the specified
             // location becomes current, the App will be made aware of the route
             // to be rendered at it.
             windowLocation.pathname = path;
         }
+
+        return promise || Promise.resolve();
     }
 
     /**

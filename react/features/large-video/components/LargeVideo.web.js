@@ -3,7 +3,9 @@
 import React, { Component } from 'react';
 
 import { Watermarks } from '../../base/react';
-import { VideoStatusLabel } from '../../video-status-label';
+import { VideoQualityLabel } from '../../video-quality';
+
+declare var interfaceConfig: Object;
 
 /**
  * Implements a React {@link Component} which represents the large video (a.k.a.
@@ -36,16 +38,37 @@ export default class LargeVideo extends Component {
                         id = 'dominantSpeakerAvatar'
                         src = '' />
                 </div>
+                <div id = 'remotePresenceMessage' />
                 <span id = 'remoteConnectionMessage' />
-                <div id = 'largeVideoWrapper'>
-                    <video
-                        autoPlay = { true }
-                        id = 'largeVideo'
-                        muted = { true } />
+                <div>
+                    <div className = 'video_blurred_container'>
+                        <video
+                            autoPlay = { true }
+                            id = 'largeVideoBackground'
+                            muted = 'true' />
+                    </div>
+                    {
+
+                        /**
+                         * FIXME: the architecture of elements related to the
+                         * large video and  the naming. The background is not
+                         * part of largeVideoWrapper because we are controlling
+                         * the size of the video through largeVideoWrapper.
+                         * That's why we need another container for the the
+                         * background and the largeVideoWrapper in order to
+                         * hide/show them.
+                         */
+                    }
+                    <div id = 'largeVideoWrapper'>
+                        <video
+                            autoPlay = { true }
+                            id = 'largeVideo'
+                            muted = { true } />
+                    </div>
                 </div>
                 <span id = 'localConnectionMessage' />
 
-                <VideoStatusLabel />
+                { interfaceConfig.filmStripOnly ? null : <VideoQualityLabel /> }
 
                 <span
                     className = 'video-state-indicator centeredVideoLabel'
