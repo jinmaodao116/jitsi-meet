@@ -1,14 +1,11 @@
-# Jitsi Meet mobile apps
+# Jitsi Meet apps for Android and iOS
 
-Jitsi Meet can also be built as a standalone mobile application for
-iOS and Android.  It uses the [React Native] framework.
+Jitsi Meet can also be built as a standalone app for Android or iOS. It uses the
+[React Native] framework.
 
 First make sure the [React Native dependencies] are installed.
 
-**NOTE**:  This document assumes the app is being built on a macOS system.
-
-**NOTE**:  The app must be built for an actual device since the simulators don't
-work properly with the native plugins we require.
+**NOTE**: This document assumes the app is being built on a macOS system.
 
 **NOTE**: Node 6.X and npm 3.X are recommended for building.
 
@@ -25,6 +22,12 @@ work properly with the native plugins we require.
     ```
 
     You may need to add ```--unsafe-perm=true``` if you are running on [Mac OS 10.11 or greater](https://github.com/phonegap/ios-deploy#os-x-1011-el-capitan-or-greater).
+
+  - Install main dependencies:
+
+    ```bash
+    npm install
+    ```
 
   - Install the required pods (CocoaPods must be installled first, it can
     be done with Homebrew: `brew install cocoapods`)
@@ -89,17 +92,15 @@ build environment.  Make sure you follow it closely.
 
     It will be launched on the connected Android device.
 
-
 ## Debugging
 
-The official documentation on [debugging] is quite extensive, it is the
+The official documentation on [debugging] is quite extensive and specifies the
 preferred method for debugging.
 
-**NOTE**: When using Chrome Developer Tools for debugging the JavaScript code
-is being interpreted by Chrome's V8 engine, instead of JSCore which
-React Native uses.  It's important to keep this in mind due to potential
-differences in supported JavaScript features.
-
+**NOTE**: When using Chrome Developer Tools for debugging the JavaScript source
+code is being interpreted by Chrome's V8 engine, instead of JSCore which React
+Native uses. It's important to keep this in mind due to potential differences in
+supported JavaScript features.
 
 [Android Studio]: https://developer.android.com/studio/index.html
 [debugging]: https://facebook.github.io/react-native/docs/debugging.html

@@ -66,11 +66,6 @@ export default {
      */
     TOGGLED_FILMSTRIP: "UI.toggled_filmstrip",
 
-    /**
-     * Notifies that the filmstrip has updated its appearance, such as by
-     * toggling or removing videos or adding videos.
-     */
-    UPDATED_FILMSTRIP_DISPLAY: "UI.updated_filmstrip_display",
     TOGGLE_SCREENSHARING: "UI.toggle_screensharing",
     TOGGLED_SHARED_DOCUMENT: "UI.toggled_shared_document",
     CONTACT_CLICKED: "UI.contact_clicked",
@@ -123,35 +118,5 @@ export default {
     /**
      * Notifies that the displayed particpant id on the largeVideo is changed.
      */
-    LARGE_VIDEO_ID_CHANGED: "UI.large_video_id_changed",
-
-    /**
-     * Toggling room lock
-     */
-    TOGGLE_ROOM_LOCK: "UI.toggle_room_lock",
-
-    /**
-     * Adding contact to contact list
-     */
-    CONTACT_ADDED: "UI.contact_added",
-
-    /**
-     * Removing the contact from contact list
-     */
-    CONTACT_REMOVED: "UI.contact_removed",
-
-    /**
-     * Indicates that a user avatar has changed.
-     */
-    USER_AVATAR_CHANGED: "UI.user_avatar_changed",
-
-    /**
-     * Display name changed.
-     */
-    DISPLAY_NAME_CHANGED: "UI.display_name_changed",
-
-    /**
-     * Show custom popup/tooltip for a specified button.
-     */
-    SHOW_CUSTOM_TOOLBAR_BUTTON_POPUP: "UI.show_custom_toolbar_button_popup"
+    LARGE_VIDEO_ID_CHANGED: "UI.large_video_id_changed"
 };

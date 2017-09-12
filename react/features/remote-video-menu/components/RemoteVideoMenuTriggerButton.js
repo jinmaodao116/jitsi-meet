@@ -1,4 +1,3 @@
-import AKInlineDialog from '@atlaskit/inline-dialog';
 import React, { Component } from 'react';
 
 import {
@@ -8,6 +7,8 @@ import {
     RemoteVideoMenu,
     VolumeSlider
 } from './';
+
+import { Popover } from '../../base/popover';
 
 declare var $: Object;
 declare var interfaceConfig: Object;
@@ -73,10 +74,6 @@ class RemoteVideoMenuTriggerButton extends Component {
     constructor(props) {
         super(props);
 
-        this.state = {
-            showRemoteMenu: false
-        };
-
         /**
          * The internal reference to topmost DOM/HTML element backing the React
          * {@code Component}. Accessed directly for associating an element as
@@ -87,9 +84,8 @@ class RemoteVideoMenuTriggerButton extends Component {
          */
         this._rootElement = null;
 
-        // Bind event handlers so they are only bound once for every instance.
-        this._onRemoteMenuClose = this._onRemoteMenuClose.bind(this);
-        this._onRemoteMenuToggle = this._onRemoteMenuToggle.bind(this);
+        // Bind event handler so it is only bound once for every instance.
+        this._onShowRemoteMenu = this._onShowRemoteMenu.bind(this);
     }
 
     /**
@@ -106,48 +102,29 @@ class RemoteVideoMenuTriggerButton extends Component {
         }
 
         return (
-            <AKInlineDialog
+            <Popover
                 content = { content }
-                isOpen = { this.state.showRemoteMenu }
-                onClose = { this._onRemoteMenuClose }
+                onPopoverOpen = { this._onShowRemoteMenu }
                 position = { interfaceConfig.VERTICAL_FILMSTRIP
-                    ? 'left middle' : 'top center' }
-                shouldFlip = { true }>
+                    ? 'left middle' : 'top center' }>
                 <span
-                    className = 'popover-trigger remote-video-menu-trigger'
-                    onClick = { this._onRemoteMenuToggle }>
+                    className = 'popover-trigger remote-video-menu-trigger'>
                     <i
                         className = 'icon-thumb-menu'
                         title = 'Remote user controls' />
                 </span>
-            </AKInlineDialog>
+            </Popover>
         );
     }
 
     /**
-     * Closes the {@code RemoteVideoMenu}.
+     * Opens the {@code RemoteVideoMenu}.
      *
      * @private
      * @returns {void}
      */
-    _onRemoteMenuClose() {
-        this.setState({ showRemoteMenu: false });
-    }
-
-    /**
-     * Opens or closes the {@code RemoteVideoMenu}.
-     *
-     * @private
-     * @returns {void}
-     */
-    _onRemoteMenuToggle() {
-        const willShowRemoteMenu = !this.state.showRemoteMenu;
-
-        if (willShowRemoteMenu) {
-            this.props.onMenuDisplay();
-        }
-
-        this.setState({ showRemoteMenu: willShowRemoteMenu });
+    _onShowRemoteMenu() {
+        this.props.onMenuDisplay();
     }
 
     /**
@@ -175,13 +152,11 @@ class RemoteVideoMenuTriggerButton extends Component {
                 <MuteButton
                     isAudioMuted = { isAudioMuted }
                     key = 'mute'
-                    onClick = { this._onRemoteMenuClose }
                     participantID = { participantID } />
             );
             buttons.push(
                 <KickButton
                     key = 'kick'
-                    onClick = { this._onRemoteMenuClose }
                     participantID = { participantID } />
             );
         }

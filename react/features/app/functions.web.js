@@ -1,15 +1,18 @@
 /* @flow */
 
-import { isRoomValid } from '../base/conference';
-import { Platform, RouteRegistry } from '../base/react';
-import { Conference } from '../conference';
+import { Platform } from '../base/react';
+import { toState } from '../base/redux';
 import {
     NoMobileApp,
     PluginRequiredBrowser,
     UnsupportedDesktopBrowser,
     UnsupportedMobileBrowser
 } from '../unsupported-browser';
-import { WelcomePage } from '../welcome';
+
+import {
+    // eslint-disable-next-line camelcase
+    _getRouteToRender as _super_getRouteToRender
+} from './functions.native';
 
 declare var APP: Object;
 declare var interfaceConfig: Object;
@@ -20,7 +23,7 @@ declare var loggingConfig: Object;
  * render.
  *
  * @private
- * @param {Object} state - Object containing current Redux state.
+ * @param {Object} state - Object containing current redux state.
  * @returns {ReactElement|void}
  * @type {Function[]}
  */
@@ -32,7 +35,7 @@ const _INTERCEPT_COMPONENT_RULES = [
      * app even if the browser supports the app (e.g. Google Chrome with
      * WebRTC support on Android).
      *
-     * @param {Object} state - Redux state of the app.
+     * @param {Object} state - The redux state of the app.
      * @returns {UnsupportedMobileBrowser|void} If the rule is satisfied then
      * we should intercept existing component by UnsupportedMobileBrowser.
      */
@@ -61,8 +64,7 @@ const _INTERCEPT_COMPONENT_RULES = [
             break;
 
         case 'undefined':
-            // If webRTCReady is not set, then we cannot use it to take a
-            // decision.
+            // If webRTCReady is not set, then we cannot base a decision on it.
             break;
 
         default:
@@ -72,27 +74,19 @@ const _INTERCEPT_COMPONENT_RULES = [
 ];
 
 /**
- * Determines which route is to be rendered in order to depict a specific Redux
+ * Determines which route is to be rendered in order to depict a specific redux
  * store.
  *
- * @param {(Object|Function)} stateOrGetState - Redux state or Regux getState()
- * method.
+ * @param {(Object|Function)} stateOrGetState - The redux state or
+ * {@link getState} function.
  * @returns {Route}
  */
 export function _getRouteToRender(stateOrGetState: Object | Function) {
-    const state
-        = typeof stateOrGetState === 'function'
-            ? stateOrGetState()
-            : stateOrGetState;
+    const route = _super_getRouteToRender(stateOrGetState);
 
-    // If mobile browser page was shown, there is no need to show it again.
-    const { room } = state['features/base/conference'];
-    const component = isRoomValid(room) ? Conference : WelcomePage;
-    const route = RouteRegistry.getRouteByComponent(component);
-
-    // Intercepts route components if any of component interceptor rules
-    // is satisfied.
-    route.component = _interceptComponent(state, component);
+    // Intercepts route components if any of component interceptor rules is
+    // satisfied.
+    route.component = _interceptComponent(stateOrGetState, route.component);
 
     return route;
 }
@@ -100,21 +94,18 @@ export function _getRouteToRender(stateOrGetState: Object | Function) {
 /**
  * Intercepts route components based on a {@link _INTERCEPT_COMPONENT_RULES}.
  *
- * @param {Object|Function} stateOrGetState - Either Redux state object or
- * getState() function.
+ * @param {Object|Function} stateOrGetState - The redux state or
+ * {@link getState} function.
  * @param {ReactElement} component - Current route component to render.
  * @private
  * @returns {ReactElement} If any of the pre-defined rules is satisfied, returns
  * intercepted component.
  */
 function _interceptComponent(
-        stateOrGetState: Object,
+        stateOrGetState: Object | Function,
         component: ReactElement<*>) {
     let result;
-    const state
-        = typeof stateOrGetState === 'function'
-            ? stateOrGetState()
-            : stateOrGetState;
+    const state = toState(stateOrGetState);
 
     for (const rule of _INTERCEPT_COMPONENT_RULES) {
         result = rule(state);

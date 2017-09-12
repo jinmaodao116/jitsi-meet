@@ -54,20 +54,19 @@ export function isFatalJitsiConnectionError(error: string) {
 /**
  * Loads config.js from a specific remote server.
  *
- * @param {string} host - Host where config.js is hosted.
- * @param {string} path='config.js' - Relative pah to config.js file.
+ * @param {string} url - The URL to load.
  * @returns {Promise<Object>}
  */
-export function loadConfig(host: string, path: string = 'config.js') {
+export function loadConfig(url: string) {
     let promise;
 
     if (typeof APP === 'undefined') {
         promise
-            = loadScript(new URL(path, host).toString())
+            = loadScript(url)
                 .then(() => {
                     const { config } = window;
 
-                    // We don't want to pollute global scope.
+                    // We don't want to pollute the global scope.
                     window.config = undefined;
 
                     if (typeof config !== 'object') {
@@ -77,14 +76,14 @@ export function loadConfig(host: string, path: string = 'config.js') {
                     return config;
                 })
                 .catch(err => {
-                    console.error(`Failed to load ${path} from ${host}`, err);
+                    console.error(`Failed to load config from ${url}`, err);
 
                     throw err;
                 });
     } else {
-        // Return config.js file from global scope. We can't use the version
-        // that's being used for the React Native app because the old/current
-        // Web app uses config from the global scope.
+        // Return "the config.js file" from the global scope - that is how the
+        // Web app on both the client and the server was implemented before the
+        // React Native app was even conceived.
         promise = Promise.resolve(window.config);
     }
 
@@ -98,4 +97,24 @@ export function loadConfig(host: string, path: string = 'config.js') {
     });
 
     return promise;
+}
+
+/**
+ * Evaluates whether analytics is enabled or not based on
+ * the redux {@code store}.
+ *
+ * @param {Store} store - The redux store in which the specified {@code action}
+ * is being dispatched.
+ * @returns {boolean} True if analytics is enabled, false otherwise.
+ */
+export function isAnalyticsEnabled({ getState }: { getState: Function }) {
+    const {
+        analyticsScriptUrls,
+        disableThirdPartyRequests
+    } = getState()['features/base/config'];
+
+    const scriptURLs = Array.isArray(analyticsScriptUrls)
+        ? analyticsScriptUrls : [];
+
+    return Boolean(scriptURLs.length) && !disableThirdPartyRequests;
 }

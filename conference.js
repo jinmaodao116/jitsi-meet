@@ -2,7 +2,6 @@
 const logger = require("jitsi-meet-logger").getLogger(__filename);
 
 import {openConnection} from './connection';
-import ContactList from './modules/UI/side_pannels/contactlist/ContactList';
 
 import AuthHandler from './modules/UI/authentication/AuthHandler';
 import Recorder from './modules/recorder/Recorder';
@@ -17,7 +16,7 @@ import UIEvents from './service/UI/UIEvents';
 import UIUtil from './modules/UI/util/UIUtil';
 import * as JitsiMeetConferenceEvents from './ConferenceEvents';
 
-import analytics from './modules/analytics/analytics';
+import { initAnalytics } from './react/features/analytics';
 
 import EventEmitter from "events";
 
@@ -35,6 +34,7 @@ import {
 } from './react/features/base/conference';
 import { updateDeviceList } from './react/features/base/devices';
 import {
+    isAnalyticsEnabled,
     isFatalJitsiConnectionError
 } from './react/features/base/lib-jitsi-meet';
 import {
@@ -57,7 +57,7 @@ import {
     participantUpdated
 } from './react/features/base/participants';
 import {
-    createLocalTracks,
+    createLocalTracksF,
     isLocalTrackMuted,
     replaceLocalTrack,
     trackAdded,
@@ -67,15 +67,11 @@ import { getLocationContextRoot } from './react/features/base/util';
 import { statsEmitter } from './react/features/connection-indicator';
 import { showDesktopPicker } from  './react/features/desktop-picker';
 import { maybeOpenFeedbackDialog } from './react/features/feedback';
-import { setFilmstripRemoteVideosVisibility } from './react/features/filmstrip';
 import {
     mediaPermissionPromptVisibilityChanged,
     suspendDetected
 } from './react/features/overlay';
-import {
-    isButtonEnabled,
-    showDesktopSharingButton
-} from './react/features/toolbox';
+import { showDesktopSharingButton } from './react/features/toolbox';
 
 const { participantConnectionStatus } = JitsiMeetJS.constants;
 
@@ -539,7 +535,7 @@ export default {
                         return [desktopStream];
                     }
 
-                    return createLocalTracks({ devices: ['audio'] }, true)
+                    return createLocalTracksF({ devices: ['audio'] }, true)
                         .then(([audioStream]) => {
                             return [desktopStream, audioStream];
                         })
@@ -551,7 +547,7 @@ export default {
                     logger.error('Failed to obtain desktop stream', error);
                     screenSharingError = error;
                     return requestedAudio
-                        ? createLocalTracks({ devices: ['audio'] }, true)
+                        ? createLocalTracksF({ devices: ['audio'] }, true)
                         : [];
                 }).catch(error => {
                     audioOnlyError = error;
@@ -561,7 +557,7 @@ export default {
             // Resolve with no tracks
             tryCreateLocalTracks = Promise.resolve([]);
         } else {
-            tryCreateLocalTracks = createLocalTracks(
+            tryCreateLocalTracks = createLocalTracksF(
                 { devices: initialDevices }, true)
                 .catch(err => {
                     if (requestedAudio && requestedVideo) {
@@ -569,7 +565,7 @@ export default {
                         // Try audio only...
                         audioAndVideoError = err;
 
-                        return createLocalTracks({devices: ['audio']}, true);
+                        return createLocalTracksF({devices: ['audio']}, true);
                     } else if (requestedAudio && !requestedVideo) {
                         audioOnlyError = err;
 
@@ -589,7 +585,7 @@ export default {
 
                     // Try video only...
                     return requestedVideo
-                        ? createLocalTracks({devices: ['video']}, true)
+                        ? createLocalTracksF({devices: ['video']}, true)
                         : [];
                 })
                 .catch(err => {
@@ -663,12 +659,13 @@ export default {
                     oldOnUnhandledRejection(event);
             };
         }
-
         return JitsiMeetJS.init(
-            Object.assign(
-                {enableAnalyticsLogging: analytics.isEnabled()}, config)
+            Object.assign({
+                    enableAnalyticsLogging: isAnalyticsEnabled(APP.store)
+                },
+                config)
             ).then(() => {
-                analytics.init();
+                initAnalytics(APP.store);
                 return this.createInitialLocalTracksAndConnect(
                     options.roomName, {
                         startAudioOnly: config.startAudioOnly,
@@ -708,11 +705,6 @@ export default {
 
                 this._createRoom(tracks);
                 APP.remoteControl.init();
-
-                if (isButtonEnabled('contacts')
-                    && !interfaceConfig.filmStripOnly) {
-                    APP.UI.ContactList = new ContactList(room);
-                }
 
                 // if user didn't give access to mic or camera or doesn't have
                 // them at all, we mark corresponding toolbar buttons as muted,
@@ -781,12 +773,14 @@ export default {
         }
 
         if (!this.localAudio && !mute) {
-            createLocalTracks({ devices: ['audio'] }, false)
+            const maybeShowErrorDialog = error => {
+                showUI && APP.UI.showMicErrorNotification(error);
+            };
+
+            createLocalTracksF({ devices: ['audio'] }, false)
                 .then(([audioTrack]) => audioTrack)
                 .catch(error => {
-                    if (showUI) {
-                        APP.UI.showMicErrorNotification(error);
-                    }
+                    maybeShowErrorDialog(error);
 
                     // Rollback the audio muted status by using null track
                     return null;
@@ -838,16 +832,14 @@ export default {
             return;
         }
 
-        const maybeShowErrorDialog = (error) => {
-            if (showUI) {
-                APP.UI.showCameraErrorNotification(error);
-            }
-        };
-
         // FIXME it is possible to queue this task twice, but it's not causing
         // any issues. Specifically this can happen when the previous
         // get user media call is blocked on "ask user for permissions" dialog.
         if (!this.localVideo && !mute) {
+            const maybeShowErrorDialog = error => {
+                showUI && APP.UI.showCameraErrorNotification(error);
+            };
+
             // Try to create local video if there wasn't any.
             // This handles the case when user joined with no video
             // (dismissed screen sharing screen or in audio only mode), but
@@ -856,7 +848,7 @@ export default {
             //
             // FIXME when local track creation is moved to react/redux
             // it should take care of the use case described above
-            createLocalTracks({ devices: ['video'] }, false)
+            createLocalTracksF({ devices: ['video'] }, false)
                 .then(([videoTrack]) => videoTrack)
                 .catch(error => {
                     // FIXME should send some feedback to the API on error ?
@@ -1263,21 +1255,24 @@ export default {
      * @returns {void}
      */
     _displayAudioOnlyTooltip(featureName) {
+        let buttonName = null;
         let tooltipElementId = null;
 
         switch (featureName) {
         case 'screenShare':
-            tooltipElementId = '#screenshareWhileAudioOnly';
+            buttonName = 'desktop';
+            tooltipElementId = 'screenshareWhileAudioOnly';
             break;
         case 'videoMute':
-            tooltipElementId = '#unmuteWhileAudioOnly';
+            buttonName = 'camera';
+            tooltipElementId = 'unmuteWhileAudioOnly';
             break;
         }
 
         if (tooltipElementId) {
             APP.UI.showToolbar(6000);
             APP.UI.showCustomToolbarPopup(
-                tooltipElementId, true, 5000);
+                buttonName, tooltipElementId, true, 5000);
         }
     },
 
@@ -1326,7 +1321,7 @@ export default {
         let promise = null;
 
         if (didHaveVideo) {
-            promise = createLocalTracks({ devices: ['video'] })
+            promise = createLocalTracksF({ devices: ['video'] })
                 .then(([stream]) => this.useVideoStream(stream))
                 .then(() => {
                     JitsiMeetJS.analytics.sendEvent(
@@ -1412,7 +1407,7 @@ export default {
         const didHaveVideo = Boolean(this.localVideo);
         const wasVideoMuted = this.isLocalVideoMuted();
 
-        return createLocalTracks({
+        return createLocalTracksF({
             desktopSharingSources: options.desktopSharingSources,
             devices: ['desktop'],
             desktopSharingExtensionExternalInstallation: {
@@ -1520,6 +1515,8 @@ export default {
             // asynchronous, but does not return a Promise and is not part of
             // the current Promise chain.
             this._handleScreenSharingError(error);
+
+            return Promise.reject(error);
         });
     },
 
@@ -1548,7 +1545,7 @@ export default {
             // again switching to the screen sharing.
             APP.UI.showExtensionInlineInstallationDialog(
                 () => {
-                    this.toggleScreenSharing();
+                    this.toggleScreenSharing().catch(() => {});
                 }
             );
 
@@ -1621,17 +1618,14 @@ export default {
 
             // check the roles for the new user and reflect them
             APP.UI.updateUserRole(user);
-
-            updateRemoteThumbnailsVisibility();
         });
+
         room.on(ConferenceEvents.USER_LEFT, (id, user) => {
             APP.store.dispatch(participantLeft(id, user));
             logger.log('USER %s LEFT', id, user);
             APP.API.notifyUserLeft(id);
             APP.UI.removeUser(id, user.getDisplayName());
             APP.UI.onSharedVideoStop(id);
-
-            updateRemoteThumbnailsVisibility();
         });
 
         room.on(ConferenceEvents.USER_STATUS_CHANGED, (id, status) => {
@@ -1695,7 +1689,8 @@ export default {
         room.on(ConferenceEvents.TALK_WHILE_MUTED, () => {
             APP.UI.showToolbar(6000);
 
-            APP.UI.showCustomToolbarPopup('#talkWhileMutedPopup', true, 5000);
+            APP.UI.showCustomToolbarPopup(
+                'microphone', 'talkWhileMutedPopup', true, 5000);
         });
 
         room.on(
@@ -1774,10 +1769,6 @@ export default {
             APP.UI.addListener(
                 UIEvents.VIDEO_UNMUTING_WHILE_AUDIO_ONLY,
                 () => this._displayAudioOnlyTooltip('videoMute'));
-
-            APP.UI.addListener(
-                UIEvents.PINNED_ENDPOINT,
-                updateRemoteThumbnailsVisibility);
         }
 
         room.on(ConferenceEvents.CONNECTION_INTERRUPTED, () => {
@@ -2019,7 +2010,7 @@ export default {
             UIEvents.VIDEO_DEVICE_CHANGED,
             (cameraDeviceId) => {
                 JitsiMeetJS.analytics.sendEvent('settings.changeDevice.video');
-                createLocalTracks({
+                createLocalTracksF({
                     devices: ['video'],
                     cameraDeviceId: cameraDeviceId,
                     micDeviceId: null
@@ -2048,7 +2039,7 @@ export default {
             (micDeviceId) => {
                 JitsiMeetJS.analytics.sendEvent(
                     'settings.changeDevice.audioIn');
-                createLocalTracks({
+                createLocalTracksF({
                     devices: ['audio'],
                     cameraDeviceId: null,
                     micDeviceId: micDeviceId
@@ -2141,8 +2132,6 @@ export default {
                     }
                 });
             }
-
-            updateRemoteThumbnailsVisibility();
         });
         room.addCommandListener(
             this.commands.defaults.SHARED_VIDEO, ({value, attributes}, id) => {
@@ -2158,24 +2147,6 @@ export default {
                     APP.UI.onSharedVideoUpdate(id, value, attributes);
                 }
             });
-
-        function updateRemoteThumbnailsVisibility() {
-            const localUserId = APP.conference.getMyUserId();
-            const remoteParticipantsCount = room.getParticipantCount() - 1;
-
-            // Get the remote thumbnail count for cases where there are
-            // non-participants displaying video, such as with video sharing.
-            const remoteVideosCount = APP.UI.getRemoteVideosCount();
-
-            const shouldShowRemoteThumbnails = interfaceConfig.filmStripOnly
-                || (APP.UI.isPinned(localUserId) && remoteVideosCount)
-                || remoteVideosCount > 1
-                || remoteParticipantsCount !== remoteVideosCount;
-
-            APP.store.dispatch(
-                setFilmstripRemoteVideosVisibility(
-                    Boolean(shouldShowRemoteThumbnails)));
-        }
     },
     /**
     * Adds any room listener.
@@ -2279,7 +2250,7 @@ export default {
 
         promises.push(
             mediaDeviceHelper.createLocalTracksAfterDeviceListChanged(
-                    createLocalTracks,
+                    createLocalTracksF,
                     newDevices.videoinput,
                     newDevices.audioinput)
                 .then(tracks =>

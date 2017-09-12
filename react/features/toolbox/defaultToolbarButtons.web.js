@@ -10,6 +10,8 @@ import { VideoQualityButton } from '../video-quality';
 
 import UIEvents from '../../../service/UI/UIEvents';
 
+import { ParticipantCounter } from '../contact-list';
+
 declare var APP: Object;
 declare var interfaceConfig: Object;
 declare var JitsiMeetJS: Object;
@@ -51,7 +53,6 @@ const buttons: Object = {
         },
         popups: [
             {
-                className: 'loginmenu',
                 dataAttr: 'audioOnly.featureToggleDisabled',
                 dataInterpolate: { feature: 'video mute' },
                 id: 'unmuteWhileAudioOnly'
@@ -102,20 +103,9 @@ const buttons: Object = {
      * The descriptor of the contact list toolbar button.
      */
     contacts: {
+        childComponent: ParticipantCounter,
         classNames: [ 'button', 'icon-contactList' ],
         enabled: true,
-
-        // XXX: Hotfix to solve race condition between toolbox rendering and
-        // contact list view that updates the number of active participants
-        // via jQuery. There is case when contact list view updates number of
-        // participants but toolbox has not been rendered yet. Since this issue
-        // is reproducible only for conferences with the only participant let's
-        // use 1 participant as a default value for this badge. Later after
-        // reactification of contact list let's use the value of active
-        // paricipants from Redux store.
-        html: <span className = 'badge-round'>
-            <span id = 'numberOfParticipants'>1</span>
-        </span>,
         id: 'toolbar_contact_list',
         onClick() {
             JitsiMeetJS.analytics.sendEvent(
@@ -143,7 +133,6 @@ const buttons: Object = {
         },
         popups: [
             {
-                className: 'loginmenu',
                 dataAttr: 'audioOnly.featureToggleDisabled',
                 dataInterpolate: { feature: 'screen sharing' },
                 id: 'screenshareWhileAudioOnly'
@@ -153,7 +142,9 @@ const buttons: Object = {
         shortcutAttr: 'toggleDesktopSharingPopover',
         shortcutFunc() {
             JitsiMeetJS.analytics.sendEvent('shortcut.screen.toggled');
-            APP.conference.toggleScreenSharing();
+
+            // eslint-disable-next-line no-empty-function
+            APP.conference.toggleScreenSharing().catch(() => {});
         },
         shortcutDescription: 'keyboardShortcuts.toggleScreensharing',
         tooltipKey: 'toolbar.sharescreen'
@@ -311,17 +302,14 @@ const buttons: Object = {
         },
         popups: [
             {
-                className: 'loginmenu',
                 dataAttr: 'toolbar.micMutedPopup',
                 id: 'micMutedPopup'
             },
             {
-                className: 'loginmenu',
                 dataAttr: 'toolbar.unableToUnmutePopup',
                 id: 'unableToUnmutePopup'
             },
             {
-                className: 'loginmenu',
                 dataAttr: 'toolbar.talkWhileMutedPopup',
                 id: 'talkWhileMutedPopup'
             }
@@ -417,9 +405,7 @@ const buttons: Object = {
         },
         popups: [
             {
-                className: 'loginmenu extendedToolbarPopup',
                 dataAttr: 'toolbar.sharedVideoMutedPopup',
-                dataAttrPosition: 'w',
                 id: 'sharedVideoMutedPopup'
             }
         ],

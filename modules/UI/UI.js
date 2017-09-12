@@ -4,13 +4,14 @@ const logger = require("jitsi-meet-logger").getLogger(__filename);
 
 var UI = {};
 
+import _ from 'lodash';
+
 import Chat from "./side_pannels/chat/Chat";
 import SidePanels from "./side_pannels/SidePanels";
 import Avatar from "./avatar/Avatar";
 import SideContainerToggler from "./side_pannels/SideContainerToggler";
 import messageHandler from "./util/MessageHandler";
 import UIUtil from "./util/UIUtil";
-import { activateTooltips } from './util/Tooltip';
 import UIEvents from "../../service/UI/UIEvents";
 import EtherpadManager from './etherpad/Etherpad';
 import SharedVideoManager from './shared_video/SharedVideo';
@@ -21,7 +22,6 @@ import Filmstrip from "./videolayout/Filmstrip";
 import SettingsMenu from "./side_pannels/settings/SettingsMenu";
 import Profile from "./side_pannels/profile/Profile";
 import Settings from "./../settings/Settings";
-import { debounce } from "../util/helpers";
 
 import { updateDeviceList } from '../../react/features/base/devices';
 import {
@@ -30,7 +30,9 @@ import {
 import { openDisplayNamePrompt } from '../../react/features/display-name';
 import {
     checkAutoEnableDesktopSharing,
+    clearButtonPopup,
     dockToolbox,
+    setButtonPopupTimeout,
     setToolbarButton,
     showDialPadButton,
     showEtherpadButton,
@@ -153,8 +155,6 @@ UI.showChatError = function (err, msg) {
  * @param {string} displayName new nickname
  */
 UI.changeDisplayName = function (id, displayName) {
-    if (UI.ContactList)
-        UI.ContactList.onDisplayNameChange(id, displayName);
     VideoLayout.onDisplayNameChanged(id, displayName);
 
     if (APP.conference.isLocalId(id) || id === 'localVideoContainer') {
@@ -199,9 +199,6 @@ UI.setLocalRaisedHandStatus
  */
 UI.initConference = function () {
     let id = APP.conference.getMyUserId();
-    // Add myself to the contact list.
-    if (UI.ContactList)
-        UI.ContactList.addContact(id, true);
 
     // Update default button states before showing the toolbar
     // if local role changes buttons state will be again updated.
@@ -230,8 +227,6 @@ UI.initConference = function () {
     // to the UI (depending on the moderator role of the local participant) and
     // (2) APP.conference as means of communication between the participants.
     followMeHandler = new FollowMe(APP.conference, UI);
-
-    activateTooltips();
 };
 
 UI.mucJoined = function () {
@@ -246,22 +241,6 @@ UI.mucJoined = function () {
  * Handler for toggling filmstrip
  */
 UI.handleToggleFilmstrip = () => UI.toggleFilmstrip();
-
-/**
- * Sets tooltip defaults.
- *
- * @private
- */
-function _setTooltipDefaults() {
-    $.fn.tooltip.defaults = {
-        opacity: 1, //defaults to 1
-        offset: 1,
-        delayIn: 0, //defaults to 500
-        hoverable: true,
-        hideOnClick: true,
-        aria: true
-    };
-}
 
 /**
  * Returns the shared document manager object.
@@ -283,8 +262,6 @@ UI.start = function () {
     // Set the defaults for prompt dialogs.
     $.prompt.setDefaults({persistent: false});
 
-    // Set the defaults for tooltips.
-    _setTooltipDefaults();
 
     SideContainerToggler.init(eventEmitter);
     Filmstrip.init(eventEmitter);
@@ -297,13 +274,13 @@ UI.start = function () {
 
     sharedVideoManager = new SharedVideoManager(eventEmitter);
     if (!interfaceConfig.filmStripOnly) {
-        let debouncedShowToolbar
-            = debounce(
+        let throttledShowToolbar
+            = _.throttle(
                     () => UI.showToolbar(),
                     100,
                     { leading: true, trailing: false });
 
-        $("#videoconference_page").mousemove(debouncedShowToolbar);
+        $("#videoconference_page").mousemove(throttledShowToolbar);
 
         // Initialise the recording module.
         if (config.enableRecording) {
@@ -385,7 +362,8 @@ UI.unbindEvents = () => {
 UI.addLocalStream = track => {
     switch (track.getType()) {
     case 'audio':
-        VideoLayout.changeLocalAudio(track);
+        // Local audio is not rendered so no further action is needed at this
+        // point.
         break;
     case 'video':
         VideoLayout.changeLocalVideo(track);
@@ -444,9 +422,6 @@ UI.addUser = function (user) {
     var id = user.getId();
     var displayName = user.getDisplayName();
 
-    if (UI.ContactList)
-        UI.ContactList.addContact(id);
-
     messageHandler.participantNotification(
         displayName,'notify.somebody', 'connected', 'notify.connected'
     );
@@ -472,9 +447,6 @@ UI.addUser = function (user) {
  * @param {string} displayName user nickname
  */
 UI.removeUser = function (id, displayName) {
-    if (UI.ContactList)
-        UI.ContactList.removeContact(id);
-
     messageHandler.participantNotification(
         displayName,'notify.somebody', 'disconnected', 'notify.disconnected'
     );
@@ -554,6 +526,10 @@ UI.updateUserRole = user => {
  * @param {string} status - The new status.
  */
 UI.updateUserStatus = (user, status) => {
+    if (!status) {
+        return;
+    }
+
     let displayName = user.getDisplayName();
     messageHandler.participantNotification(
         displayName, '', 'connected', "dialOut.statusMessage",
@@ -609,13 +585,21 @@ UI.inputDisplayNameHandler = function (newDisplayName) {
 
 /**
  * Show custom popup/tooltip for a specified button.
- * @param popupSelectorID the selector id of the popup to show
- * @param show true or false/show or hide the popup
- * @param timeout the time to show the popup
+ *
+ * @param {string} buttonName - The name of the button as specified in the
+ * button configurations for the toolbar.
+ * @param {string} popupSelectorID - The id of the popup to show as specified in
+ * the button configurations for the toolbar.
+ * @param {boolean} show - True or false/show or hide the popup
+ * @param {number} timeout - The time to show the popup
+ * @returns {void}
  */
-UI.showCustomToolbarPopup = function (popupSelectorID, show, timeout) {
-    eventEmitter.emit(UIEvents.SHOW_CUSTOM_TOOLBAR_BUTTON_POPUP,
-        popupSelectorID, show, timeout);
+UI.showCustomToolbarPopup = function (buttonName, popupID, show, timeout) {
+    const action = show
+        ? setButtonPopupTimeout(buttonName, popupID, timeout)
+        : clearButtonPopup(buttonName);
+
+    APP.store.dispatch(action);
 };
 
 /**
@@ -742,8 +726,6 @@ UI.dockToolbar = dock => APP.store.dispatch(dockToolbox(dock));
  */
 function changeAvatar(id, avatarUrl) {
     VideoLayout.changeUserAvatar(id, avatarUrl);
-    if (UI.ContactList)
-        UI.ContactList.changeUserAvatar(id, avatarUrl);
     if (APP.conference.isLocalId(id)) {
         Profile.changeAvatar(avatarUrl);
     }

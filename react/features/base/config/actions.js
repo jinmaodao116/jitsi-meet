@@ -1,6 +1,27 @@
 /* @flow */
 
-import { SET_CONFIG } from './actionTypes';
+import { LOAD_CONFIG_ERROR, SET_CONFIG } from './actionTypes';
+
+/**
+ * Signals that a configuration could not be loaded due to a specific error.
+ *
+ * @param {Error} error - The {@code Error} which prevented the successful
+ * loading of a configuration.
+ * @param {string|URL} locationURL - The URL of the location which necessitated
+ * the loading of a configuration.
+ * @returns {{
+ *     type: LOAD_CONFIG_ERROR,
+ *     error: Error,
+ *     locationURL
+ * }}
+ */
+export function loadConfigError(error: Error, locationURL: string | URL) {
+    return {
+        type: LOAD_CONFIG_ERROR,
+        error,
+        locationURL
+    };
+}
 
 /**
  * Sets the configuration represented by the feature base/config. The
@@ -14,7 +35,7 @@ import { SET_CONFIG } from './actionTypes';
  *     config: Object
  * }}
  */
-export function setConfig(config: Object) {
+export function setConfig(config: Object = {}) {
     return {
         type: SET_CONFIG,
         config

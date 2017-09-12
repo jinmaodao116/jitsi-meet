@@ -1,7 +1,7 @@
-import AKInlineDialog from '@atlaskit/inline-dialog';
 import React, { Component } from 'react';
 
 import { JitsiParticipantConnectionStatus } from '../../base/lib-jitsi-meet';
+import { Popover } from '../../base/popover';
 import { ConnectionStatsTable } from '../../connection-stats';
 
 import statsEmitter from '../statsEmitter';
@@ -124,9 +124,6 @@ class ConnectionIndicator extends Component {
 
         // Bind event handlers so they are only bound once for every instance.
         this._onStatsUpdated = this._onStatsUpdated.bind(this);
-        this._onStatsClose = this._onStatsClose.bind(this);
-        this._onStatsToggle = this._onStatsToggle.bind(this);
-        this._onStatsUpdated = this._onStatsUpdated.bind(this);
         this._onToggleShowMore = this._onToggleShowMore.bind(this);
     }
 
@@ -175,46 +172,19 @@ class ConnectionIndicator extends Component {
      */
     render() {
         return (
-            <div className = 'connection-indicator-container'>
-                <AKInlineDialog
-                    content = { this._renderStatisticsTable() }
-                    isOpen = { this.state.showStats }
-                    onClose = { this._onStatsClose }
-                    position = { this.props.statsPopoverPosition }>
-                    <div
-                        className = 'popover-trigger'
-                        onClick = { this._onStatsToggle }>
-                        <div className = 'connection-indicator indicator'>
-                            <div className = 'connection indicatoricon'>
-                                { this._renderIcon() }
-                            </div>
+            <Popover
+                className = 'indicator-container'
+                content = { this._renderStatisticsTable() }
+                position = { this.props.statsPopoverPosition }>
+                <div className = 'popover-trigger'>
+                    <div className = 'connection-indicator indicator'>
+                        <div className = 'connection indicatoricon'>
+                            { this._renderIcon() }
                         </div>
                     </div>
-                </AKInlineDialog>
-            </div>
+                </div>
+            </Popover>
         );
-    }
-
-    /**
-     * Sets the state not to show the Statistics Table popover.
-     *
-     * @private
-     * @returns {void}
-     */
-    _onStatsClose() {
-        this.setState({ showStats: false });
-    }
-
-    /**
-     * Sets the state to show or hide the Statistics Table popover.
-     *
-     * @private
-     * @returns {void}
-     */
-    _onStatsToggle() {
-        if (this.props.enableStatsDisplay) {
-            this.setState({ showStats: !this.state.showStats });
-        }
     }
 
     /**

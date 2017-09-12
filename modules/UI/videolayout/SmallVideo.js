@@ -146,7 +146,7 @@ SmallVideo.prototype.getId = function () {
  * <tt>false</tt> - otherwise.
  */
 SmallVideo.prototype.isVisible = function () {
-    return $('#' + this.videoSpanId).is(':visible');
+    return this.$container.is(':visible');
 };
 
 /**
@@ -171,8 +171,8 @@ SmallVideo.prototype.setDeviceAvailabilityIcons = function (devices) {
     if(!this.container)
         return;
 
-    var noMic = $("#" + this.videoSpanId + " > .noMic");
-    var noVideo =  $("#" + this.videoSpanId + " > .noVideo");
+    var noMic = this.$container.find('.noMic');
+    var noVideo =  this.$container.find('.noVideo');
 
     noMic.remove();
     noVideo.remove();
@@ -249,7 +249,7 @@ SmallVideo.getStreamElementID = function (stream) {
  */
 SmallVideo.prototype.bindHoverHandler = function () {
     // Add hover handler
-    $(this.container).hover(
+    this.$container.hover(
         () => {
             this.videoIsHovered = true;
             this.updateView();
@@ -316,16 +316,27 @@ SmallVideo.prototype.setVideoMutedView = function(isMuted) {
 SmallVideo.prototype.updateStatusBar = function () {
     const statusBarContainer
         = this.container.querySelector('.videocontainer__toolbar');
+    const tooltipPosition = interfaceConfig.VERTICAL_FILMSTRIP ? 'left' : 'top';
 
     /* jshint ignore:start */
     ReactDOM.render(
-        <div>
-            { this.isAudioMuted ? <AudioMutedIndicator /> : null }
-            { this.isVideoMuted ? <VideoMutedIndicator /> : null }
-            { this._isModerator
-                && !interfaceConfig.DISABLE_FOCUS_INDICATOR
-                    ? <ModeratorIndicator /> : null }
-        </div>,
+        <I18nextProvider i18n = { i18next }>
+            <div>
+                { this.isAudioMuted
+                    ? <AudioMutedIndicator
+                        tooltipPosition = { tooltipPosition } />
+                    : null }
+                { this.isVideoMuted
+                    ? <VideoMutedIndicator
+                        tooltipPosition = { tooltipPosition } />
+                    : null }
+                { this._isModerator
+                    && !interfaceConfig.DISABLE_FOCUS_INDICATOR
+                        ? <ModeratorIndicator
+                             tooltipPosition = { tooltipPosition } />
+                        : null }
+            </div>
+        </I18nextProvider>,
         statusBarContainer);
     /* jshint ignore:end */
 };
@@ -418,7 +429,7 @@ SmallVideo.prototype.removeModeratorIndicator = function () {
  * array (after checking its length of course!).
  */
 SmallVideo.prototype.selectVideoElement = function () {
-    return $(RTCUIHelper.findVideoElement($('#' + this.videoSpanId)[0]));
+    return $(RTCUIHelper.findVideoElement(this.container));
 };
 
 /**
@@ -428,7 +439,7 @@ SmallVideo.prototype.selectVideoElement = function () {
  * element which displays the user's avatar.
  */
 SmallVideo.prototype.$avatar = function () {
-    return $('#' + this.videoSpanId + ' .avatar-container');
+    return this.$container.find('.avatar-container');
 };
 
 /**
@@ -438,7 +449,7 @@ SmallVideo.prototype.$avatar = function () {
  * the video thumbnail
  */
 SmallVideo.prototype.$displayName = function () {
-    return $('#' + this.videoSpanId + ' .displayNameContainer');
+    return this.$container.find('.displayNameContainer');
 };
 
 /**
@@ -487,13 +498,13 @@ SmallVideo.prototype.removeDisplayName = function () {
  */
 SmallVideo.prototype.focus = function(isFocused) {
     var focusedCssClass = "videoContainerFocused";
-    var isFocusClassEnabled = $(this.container).hasClass(focusedCssClass);
+    var isFocusClassEnabled = this.$container.hasClass(focusedCssClass);
 
     if (!isFocused && isFocusClassEnabled) {
-        $(this.container).removeClass(focusedCssClass);
+        this.$container.removeClass(focusedCssClass);
     }
     else if (isFocused && !isFocusClassEnabled) {
-        $(this.container).addClass(focusedCssClass);
+        this.$container.addClass(focusedCssClass);
     }
 };
 
@@ -597,8 +608,8 @@ SmallVideo.prototype.updateView = function () {
                                 || displayMode === DISPLAY_AVATAR_WITH_NAME));
     // show hide overlay when there is a video or avatar under
     // the display name
-    UIUtil.setVisibleBySelector($('#' + this.videoSpanId
-                                + ' .videocontainer__hoverOverlay'),
+    UIUtil.setVisibleBySelector(this.$container.find(
+                                '.videocontainer__hoverOverlay'),
                                 (displayMode === DISPLAY_AVATAR_WITH_NAME
                                 || displayMode === DISPLAY_VIDEO_WITH_NAME));
 };
@@ -727,7 +738,7 @@ SmallVideo.prototype.initBrowserSpecificProperties = function() {
     if (userAgent.indexOf("QtWebEngine") > -1
         && (userAgent.indexOf("Windows") > -1
             || userAgent.indexOf("Linux") > -1)) {
-        $('#' + this.videoSpanId).css("overflow", "hidden");
+        this.$container.css("overflow", "hidden");
     }
 };
 
@@ -744,6 +755,7 @@ SmallVideo.prototype.updateIndicators = function () {
         = this.container.querySelector('.videocontainer__toptoolbar');
 
     const iconSize = UIUtil.getIndicatorFontSize();
+    const tooltipPosition = interfaceConfig.VERTICAL_FILMSTRIP ? 'left' : 'top';
 
     /* jshint ignore:start */
     ReactDOM.render(
@@ -758,10 +770,14 @@ SmallVideo.prototype.updateIndicators = function () {
                         userID = { this.id } />
                     : null }
                 { this._showRaisedHand
-                    ? <RaisedHandIndicator iconSize = { iconSize } />
+                    ? <RaisedHandIndicator
+                        iconSize = { iconSize }
+                        tooltipPosition = { tooltipPosition } />
                     : null }
                 { this._showDominantSpeaker
-                    ? <DominantSpeakerIndicator iconSize = { iconSize } />
+                    ? <DominantSpeakerIndicator
+                        iconSize = { iconSize }
+                        tooltipPosition = { tooltipPosition } />
                     : null }
             </div>
         </I18nextProvider>,

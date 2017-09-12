@@ -1,17 +1,28 @@
 /* @flow */
 
+import AKInlineDialog from '@atlaskit/inline-dialog';
+import { Tooltip } from '@atlaskit/tooltip';
 import React, { Component } from 'react';
 
 import { translate } from '../../base/i18n';
 
-import {
-    setTooltip,
-    setTooltipText
-} from '../../../../modules/UI/util/Tooltip';
+import { isButtonEnabled } from '../functions';
 
 import StatelessToolbarButton from './StatelessToolbarButton';
 
 declare var APP: Object;
+
+/**
+ * Mapping of tooltip positions to equivalent {@code AKInlineDialog} positions.
+ *
+ * @private
+ */
+const TOOLTIP_TO_POPUP_POSITION = {
+    bottom: 'bottom center',
+    left: 'left middle',
+    top: 'top center',
+    right: 'right middle'
+};
 
 /**
  * Represents a button in Toolbar on React.
@@ -22,6 +33,22 @@ declare var APP: Object;
 class ToolbarButton extends Component {
     button: Object;
     _createRefToButton: Function;
+
+    _onClick: Function;
+
+    _onMouseOut: Function;
+
+    _onMouseOver: Function;
+
+    state: {
+
+        /**
+         * Whether or not the tooltip for the button should be displayed.
+         *
+         * @type {boolean}
+         */
+        showTooltip: boolean
+    }
 
     /**
      * Toolbar button component's property types.
@@ -67,8 +94,15 @@ class ToolbarButton extends Component {
     constructor(props: Object) {
         super(props);
 
+        this.state = {
+            showTooltip: false
+        };
+
         // Bind methods to save the context
         this._createRefToButton = this._createRefToButton.bind(this);
+        this._onClick = this._onClick.bind(this);
+        this._onMouseOut = this._onMouseOut.bind(this);
+        this._onMouseOver = this._onMouseOver.bind(this);
     }
 
     /**
@@ -79,7 +113,7 @@ class ToolbarButton extends Component {
      * @returns {void}
      */
     componentDidMount(): void {
-        this._setShortcutAndTooltip();
+        this._setShortcut();
 
         if (this.props.onMount) {
             this.props.onMount();
@@ -105,19 +139,57 @@ class ToolbarButton extends Component {
      * @returns {ReactElement}
      */
     render(): ReactElement<*> {
-        const { button } = this.props;
-        const popups = button.popups || [];
-
+        const { button, t, tooltipPosition } = this.props;
         const props = {
             ...this.props,
+            onClick: this._onClick,
             createRefToButton: this._createRefToButton
         };
 
-        return (
-            <StatelessToolbarButton { ...props }>
-                { this._renderPopups(popups) }
-            </StatelessToolbarButton>
+        const buttonComponent = ( // eslint-disable-line no-extra-parens
+            <Tooltip
+                description = { button.tooltipText || t(button.tooltipKey) }
+                onMouseOut = { this._onMouseOut }
+                onMouseOver = { this._onMouseOver }
+                position = { tooltipPosition }
+                visible = { this.state.showTooltip }>
+                <StatelessToolbarButton { ...props } />
+            </Tooltip>
         );
+        let children = buttonComponent;
+
+        const popupConfig = this._getPopupDisplayConfiguration();
+
+        if (popupConfig) {
+            const { dataAttr, dataInterpolate, position } = popupConfig;
+
+            children = ( // eslint-disable-line no-extra-parens
+                <AKInlineDialog
+                    content = { t(dataAttr, dataInterpolate) }
+                    isOpen = { Boolean(popupConfig) }
+                    position = { position }>
+                    { buttonComponent }
+                </AKInlineDialog>
+            );
+        }
+
+        return (
+            <div className = { `toolbar-button-wrapper ${button.id}-wrapper` }>
+                { children }
+            </div>
+        );
+    }
+
+    /**
+     * Wrapper on on click handler props for current button.
+     *
+     * @param {Event} event - Click event object.
+     * @returns {void}
+     * @private
+     */
+    _onClick(event) {
+        this.props.onClick(event);
+        this.setState({ showTooltip: false });
     }
 
     /**
@@ -130,6 +202,32 @@ class ToolbarButton extends Component {
      */
     _createRefToButton(element: HTMLElement): void {
         this.button = element;
+    }
+
+    /**
+     * Parses the props and state to find any popup that should be displayed
+     * and returns an object describing how the popup should display.
+     *
+     * @private
+     * @returns {Object|null}
+     */
+    _getPopupDisplayConfiguration() {
+        const { button, tooltipPosition } = this.props;
+        const { popups, popupDisplay } = button;
+
+        if (!popups || !popupDisplay) {
+            return null;
+        }
+
+        const { popupID } = popupDisplay;
+        const currentPopup = popups.find(popup => popup.id === popupID);
+
+        return Object.assign(
+            {},
+            currentPopup || {},
+            {
+                position: TOOLTIP_TO_POPUP_POSITION[tooltipPosition]
+            });
     }
 
     /**
@@ -148,30 +246,27 @@ class ToolbarButton extends Component {
     }
 
     /**
-     * Renders popup element for toolbar button.
+     * Hides any displayed tooltip.
      *
-     * @param {Array} popups - Array of popup objects.
-     * @returns {Array}
      * @private
+     * @returns {void}
      */
-    _renderPopups(popups: Array<*> = []): Array<*> {
-        return popups.map(popup => {
-            let gravity = 'n';
+    _onMouseOut(): void {
+        this.setState({ showTooltip: false });
+    }
 
-            if (popup.dataAttrPosition) {
-                gravity = popup.dataAttrPosition;
-            }
+    /**
+     * Hides any displayed tooltip.
+     *
+     * @private
+     * @returns {void}
+     */
+    _onMouseOver(): void {
+        const { button } = this.props;
 
-            const title = this.props.t(popup.dataAttr, popup.dataInterpolate);
-
-            return (
-                <div
-                    className = { popup.className }
-                    data-popup = { gravity }
-                    id = { popup.id }
-                    key = { popup.id }
-                    title = { title } />
-            );
+        this.setState({
+            showTooltip: isButtonEnabled(button.buttonName)
+                && !button.unclickable
         });
     }
 
@@ -181,20 +276,8 @@ class ToolbarButton extends Component {
      * @private
      * @returns {void}
      */
-    _setShortcutAndTooltip(): void {
-        const { button, tooltipPosition } = this.props;
-
-        if (!button.unclickable) {
-            if (button.tooltipText) {
-                setTooltipText(this.button,
-                    button.tooltipText,
-                    tooltipPosition);
-            } else {
-                setTooltip(this.button,
-                    button.tooltipKey,
-                    tooltipPosition);
-            }
-        }
+    _setShortcut(): void {
+        const { button } = this.props;
 
         if (button.shortcut && APP && APP.keyboardshortcut) {
             APP.keyboardshortcut.registerShortcut(

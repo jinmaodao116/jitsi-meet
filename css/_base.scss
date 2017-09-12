@@ -80,8 +80,8 @@ form {
     display: block;
     position: absolute;
     top: 15;
-    width: 186px;
-    height: 74px;
+    width: $watermarkWidth;
+    height: $watermarkHeight;
     background-size: contain;
     background-repeat: no-repeat;
     z-index: $zindex2;
@@ -117,21 +117,6 @@ form {
 .lastN, .disconnected {
     color: #a3a3a3;
     font-size: 12px;
-}
-
-/**
-* Tooltips
-**/
-.tipsy {
-    z-index: $tooltipsZ;
-    &-inner {
-        background-color: $tooltipBg;
-        max-width: 350px;
-    }
-
-    &-arrow {
-        border-color: $tooltipBg;
-    }
 }
 
 /**

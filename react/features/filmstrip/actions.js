@@ -1,22 +1,22 @@
 import {
-    SET_FILMSTRIP_REMOTE_VIDEOS_VISIBLITY,
+    SET_FILMSTRIP_HOVERED,
     SET_FILMSTRIP_VISIBILITY
 } from './actionTypes';
 
 /**
- * Sets the visibility of remote videos in the filmstrip.
+ * Sets if the filmstrip is currently being hovered over.
  *
- * @param {boolean} remoteVideosVisible - Whether or not remote videos in the
- * filmstrip should be visible.
+ * @param {boolean} hovered - Whether or not the filmstrip is currently being
+ * hovered over.
  * @returns {{
- *     type: SET_FILMSTRIP_REMOTE_VIDEOS_VISIBLITY,
- *     remoteVideosVisible: boolean
+ *     type: SET_FILMSTRIP_HOVERED,
+ *     hovered: boolean
  * }}
  */
-export function setFilmstripRemoteVideosVisibility(remoteVideosVisible) {
+export function setFilmstripHovered(hovered) {
     return {
-        type: SET_FILMSTRIP_REMOTE_VIDEOS_VISIBLITY,
-        remoteVideosVisible
+        type: SET_FILMSTRIP_HOVERED,
+        hovered
     };
 }
 

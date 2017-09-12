@@ -1,17 +1,16 @@
 /**
- * The type of action which signals to change the visibility of remote videos in
- * the filmstrip.
+ * The type of the action which sets whether or not the filmstrip is being
+ * hovered with the cursor.
  *
  * {
- *     type: SET_FILMSTRIP_REMOTE_VIDEOS_VISIBLITY,
- *     remoteVideosVisible: boolean
+ *     type: SET_FILMSTRIP_HOVERED,
+ *     hovered: boolean
  * }
  */
-export const SET_FILMSTRIP_REMOTE_VIDEOS_VISIBLITY
-    = Symbol('SET_FILMSTRIP_REMOTE_VIDEOS_VISIBLITY');
+export const SET_FILMSTRIP_HOVERED = Symbol('SET_FILMSTRIP_HOVERED');
 
 /**
- * The type of action sets the visibility of the entire filmstrip;
+ * The type of action sets the visibility of the entire filmstrip.
  *
  * {
  *     type: SET_FILMSTRIP_VISIBILITY,

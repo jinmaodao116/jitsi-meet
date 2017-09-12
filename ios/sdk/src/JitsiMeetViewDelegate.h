@@ -25,7 +25,7 @@
  * The {@code data} dictionary contains an "error" key describing the error and
  * a {@code url} key with the conference URL.
  */
-- (void) conferenceFailed:(NSDictionary *)data;
+- (void)conferenceFailed:(NSDictionary *)data;
 
 /**
  * Called when a conference was joined.
@@ -33,7 +33,7 @@
  * The {@code data} dictionary contains a {@code url} key with the conference
  * URL.
  */
-- (void) conferenceJoined:(NSDictionary *)data;
+- (void)conferenceJoined:(NSDictionary *)data;
 
 /**
  * Called when a conference was left.
@@ -41,7 +41,7 @@
  * The {@code data} dictionary contains a {@code url} key with the conference
  * URL.
  */
-- (void) conferenceLeft:(NSDictionary *)data;
+- (void)conferenceLeft:(NSDictionary *)data;
 
 /**
  * Called before a conference is joined.
@@ -49,7 +49,7 @@
  * The {@code data} dictionary contains a {@code url} key with the conference
  * URL.
  */
-- (void) conferenceWillJoin:(NSDictionary *)data;
+- (void)conferenceWillJoin:(NSDictionary *)data;
 
 /**
  * Called before a conference is left.
@@ -57,6 +57,16 @@
  * The {@code data} dictionary contains a {@code url} key with the conference
  * URL.
  */
-- (void) conferenceWillLeave:(NSDictionary *)data;
+- (void)conferenceWillLeave:(NSDictionary *)data;
+
+/**
+ * Called when loading the main configuration file from the Jitsi Meet
+ * deployment file.
+ *
+ * The {@code data} dictionary contains an {@code error} key with the error and
+ * a {@code url} key with the conference URL which necessitated the loading of
+ * the configuration file.
+ */
+- (void)loadConfigError:(NSDictionary *)data;
 
 @end

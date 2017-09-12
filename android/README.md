@@ -1,9 +1,26 @@
 # Jitsi Meet SDK for Android
 
-This directory contains the source code of the Jitsi Meet app and the Jitsi Meet
-SDK for Android.
+## Build
 
-## Jitsi Meet SDK
+1. Install all required [dependencies](https://github.com/jitsi/jitsi-meet/blob/master/doc/mobile.md).
+
+2. ```bash
+   cd android/
+   ./gradlew :sdk:assembleRelease
+   ```
+
+3. ```bash
+   ./gradlew :sdk:publish
+   cd ../
+   ```
+
+## Install
+
+Add the Maven repository
+`https://github.com/jitsi/jitsi-maven-repository/raw/master/releases` and the
+dependency `org.jitsi.react:jitsi-meet-sdk:1.9.0` into your `build.gradle`.
+
+## API
 
 Jitsi Meet SDK is an Android library which embodies the whole Jitsi Meet
 experience and makes it reusable by third-party apps.
@@ -215,29 +232,37 @@ boilerplate.
 Called when a joining a conference was unsuccessful or when there was an error
 while in a conference.
 
-The `data` HashMap contains an "error" key describing the error and a "url"
-key with the conference URL.
+The `data` `Map` contains an "error" key describing the error and a "url" key
+with the conference URL.
 
 #### onConferenceJoined
 
 Called when a conference was joined.
 
-The `data` HashMap contains a "url" key with the conference URL.
+The `data` `Map` contains a "url" key with the conference URL.
 
 #### onConferenceLeft
 
 Called when a conference was left.
 
-The `data` HashMap contains a "url" key with the conference URL.
+The `data` `Map` contains a "url" key with the conference URL.
 
 #### onConferenceWillJoin
 
 Called before a conference is joined.
 
-The `data` HashMap contains a "url" key with the conference URL.
+The `data` `Map` contains a "url" key with the conference URL.
 
 #### onConferenceWillLeave
 
 Called before a conference is left.
 
-The `data` HashMap contains a "url" key with the conference URL.
+The `data` `Map` contains a "url" key with the conference URL.
+
+#### onLoadConfigError
+
+Called when loading the main configuration file from the Jitsi Meet deployment
+fails.
+
+The `data` `Map` contains an "error" key with the error and a "url" key with the
+conference URL which necessitated the loading of the configuration file.

@@ -181,6 +181,9 @@ prosody.events.add_handler("pre-jitsi-authentication", function(session)
         -- we will mark it with ignore tag
         local nick = string.sub(username, 0, 8);
         if (have_poltergeist_occupant(room, nick)) then
+            -- notify that user connected using the poltergeist
+            update_poltergeist_occupant_status(
+                room, nick, "connected");
             remove_poltergeist_occupant(room, nick, true);
         end
 
@@ -390,13 +393,19 @@ function handle_create_poltergeist (event)
         return 404;
     end
 
-    local username = generate_uuid();
-    store_username(room, user_id, username)
-
-    create_poltergeist_occupant(
-        room, string.sub(username,0,8), name, avatar, status);
-
-    return 200;
+    local username = get_username(room, user_id);
+    if (username ~= nil
+        and have_poltergeist_occupant(room, string.sub(username, 0, 8))) then
+        log("warn", "poltergeist for username:%s already in the room:%s",
+            username, room_name);
+        return 202;
+    else
+        username = generate_uuid();
+        store_username(room, user_id, username);
+        create_poltergeist_occupant(
+            room, string.sub(username, 0, 8), name, avatar, status);
+        return 200;
+    end
 end
 
 --- Handles request for updating poltergeists status

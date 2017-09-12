@@ -17,53 +17,6 @@ export function createDeferred() {
 }
 
 /**
- * Creates a debounced function that delays invoking func until after wait
- * milliseconds have elapsed since the last time the debounced function was
- * invoked.
- *
- * @param fn
- * @param wait
- * @param options
- * @returns {function(...[*])}
- */
-export function debounce(fn, wait = 0, options = {}) {
-    const leading = options.leading || false;
-    const trailing
-        = (typeof options.trailing === 'undefined') || options.trailing;
-    let called = false;
-
-    return (...args) => {
-        if (!called) {
-            leading && fn(...args);
-
-            setTimeout(() => {
-                called = false;
-                trailing && fn(...args);
-            }, wait);
-
-            called = true;
-        }
-    };
-}
-
-/**
- * Returns the namespace for all global variables, functions, etc that we need.
- *
- * @returns {Object} the namespace.
- *
- * NOTE: After React-ifying everything this should be the only global.
- */
-export function getJitsiMeetGlobalNS() {
-    if (!window.JitsiMeetJS) {
-        window.JitsiMeetJS = {};
-    }
-    if (!window.JitsiMeetJS.app) {
-        window.JitsiMeetJS.app = {};
-    }
-    return window.JitsiMeetJS.app;
-}
-
-/**
  * Reload page.
  */
 export function reload() {
